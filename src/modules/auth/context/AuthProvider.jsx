@@ -34,25 +34,14 @@ function AuthProvider({ children }) {
     return { error: null };
   };
 
-  const singinAdmin = async (username, password) => {
-    if (
-      (username === 'admin' ||
-        username === 'admin@medportal.com' ||
-        username === 'admin@test.com') &&
-      password === 'admin123'
-    ) {
-      setAuthSession('mock-admin-token-12345');
-
-      return { error: null };
-    }
-
-    const { data, error } = await loginAdmin(username, password);
+    const singinAdmin = async (email, password) => {
+    const { data, error } = await loginAdmin(email, password);
 
     if (error) {
       return { error };
     }
 
-    setAuthSession(data);
+    setAuthSession(data.token);
 
     return { error: null };
   };
