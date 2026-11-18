@@ -39,7 +39,7 @@ const routes = [
   {
     path: '/',
     element: (
-      <ProtectedRoute redirectTo="/login">
+      <ProtectedRoute redirectTo="/login" allowedRole="PACIENTE">
         <PatientLayout />
       </ProtectedRoute>
     ),
@@ -59,7 +59,7 @@ const routes = [
   {
     path: '/admin',
     element: (
-      <ProtectedRoute redirectTo="/admin/login">
+      <ProtectedRoute redirectTo="/admin/login" allowedRole="ADMINISTRADOR">
         <DashboardLayout />
       </ProtectedRoute>
     ),
@@ -102,9 +102,9 @@ const routes = [
   },
 ];
 
-function App() {
-  const router = createBrowserRouter(routes);
+const router = createBrowserRouter(routes);
 
+function App() {
   return (
     <AuthProvider>
       <RouterProvider router={router} />
