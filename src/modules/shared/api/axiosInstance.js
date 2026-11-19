@@ -28,6 +28,7 @@ instance.interceptors.response.use(
     if (status === 401 && !esLogin) {
       localStorage.removeItem('token');
       localStorage.removeItem('role');
+      localStorage.removeItem('dni');
 
       if (window.location.pathname.includes('admin')) {
         window.location.href = '/admin/login';

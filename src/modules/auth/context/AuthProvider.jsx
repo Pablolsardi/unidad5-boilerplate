@@ -52,25 +52,15 @@ function AuthProvider({ children }) {
     return { error: null };
   };
 
-  const singinPatient = async (username, password) => {
-    if (
-      (username === 'paciente' ||
-        username === 'paciente@medportal.com' ||
-        username === 'paciente@test.com') &&
-      password === 'paciente123'
-    ) {
-      setAuthSession('mock-patient-token-67890', 'PACIENTE');
-
-      return { error: null };
-    }
-
-    const { data, error } = await loginPatient(username, password);
+  const singinPatient = async (email, dni) => {
+    const { data, error } = await loginPatient(email, dni);
 
     if (error) {
       return { error };
     }
 
-    setAuthSession(data);
+    setAuthSession(data.token, data.role);
+    localStorage.setItem('dni', dni);
 
     return { error: null };
   };
