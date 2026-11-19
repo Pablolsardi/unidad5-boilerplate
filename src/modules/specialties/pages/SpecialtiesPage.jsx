@@ -10,7 +10,7 @@ import {
 } from '../services/specialtiesService';
 
 const PAGE_SIZE = 10;
-const MIN_SEARCH_LENGTH = 3; 
+const MIN_SEARCH_LENGTH = 3;
 
 function SpecialtiesPage() {
   const navigate = useNavigate();
@@ -96,7 +96,6 @@ function SpecialtiesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-med-text-main">
@@ -108,7 +107,6 @@ function SpecialtiesPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-
           <div className="relative min-w-[240px] flex-1 sm:flex-initial">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-med-text-muted">
               <svg
