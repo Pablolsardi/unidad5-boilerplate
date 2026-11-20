@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import Card from '../../shared/components/Card';
 import Button from '../../shared/components/Button';
@@ -19,6 +20,13 @@ import {
   parseDate,
   startOfWeek,
 } from '../helpers/dateHelpers';
+import {
+  createAppointment,
+  getSessionDni,
+} from '../services/appointmentsService';
+
+// Errores que significan "ese horario ya no sirve": hay que recargar los horarios
+const SLOT_ERRORS = ['APPOINTMENT_CONFLICT', 'APPOINTMENT_PAST_DATE'];
 
 function PatientHome() {
   const navigate = useNavigate();
@@ -90,9 +98,10 @@ function PatientHome() {
     setSpecialtyId(e.target.value);
     setDoctors([]);
     setDoctorId('');
-    setSlots([]); // ← nueva
-    setSelectedSlot(null); // ← nueva
+    setSlots([]);
+    setSelectedSlot(null);
     setLoadError('');
+    setSubmitError('');
   };
 
   // El médico elegido (undefined si todavía no eligió ninguno)
@@ -102,11 +111,20 @@ function PatientHome() {
   const [slots, setSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
-  const [selectedDate, setSelectedDate] = useState(''); // día activo en mobile
+  const [selectedDate, setSelectedDate] = useState('');
   const [selectedSlot, setSelectedSlot] = useState(null);
-  const [confirmedModal, setConfirmedModal] = useState(false);
+  const [reloadSlots, setReloadSlots] = useState(0);
+  const [submitError, setSubmitError] = useState('');
+  const [confirmed, setConfirmed] = useState(null);
 
-  // Cada vez que cambia el médico: traer sus horarios libres
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm({ defaultValues: { reason: '' } });
+
+  // cargar los horarios libres al cambiar de medico
   useEffect(() => {
     if (!doctorId) return;
 
@@ -141,7 +159,7 @@ function PatientHome() {
     return () => {
       ignore = true;
     };
-  }, [doctorId]);
+  }, [doctorId, reloadSlots]);
 
   const slotsByDate = groupSlotsByDate(slots);
   const weekDates = getWeekDates(weekStart);
@@ -152,6 +170,7 @@ function PatientHome() {
     setSlots([]);
     setSelectedSlot(null);
     setLoadError('');
+    setSubmitError('');
   };
 
   const handleChangeWeek = (direction) => {
@@ -167,10 +186,35 @@ function PatientHome() {
   const handleSelectSlot = (slot) => {
     setSelectedSlot(slot);
     setSelectedDate(slot.date);
+    setSubmitError('');
   };
 
-  const handleConfirmAppointment = () => {
-    setConfirmedModal(true);
+  const onSubmit = async ({ reason }) => {
+    setSubmitError('');
+
+    const { data, error } = await createAppointment({
+      doctorId,
+      slotId: selectedSlot.id,
+      reason,
+    });
+
+    if (error) {
+      setSubmitError(error.message);
+
+      // Si el horario ya no está disponible, lo deseleccionamos y recargamos
+      if (SLOT_ERRORS.includes(error.code)) {
+        setSelectedSlot(null);
+        setReloadSlots((n) => n + 1);
+      }
+
+      return;
+    }
+
+    // Reserva OK: mostramos el modal y recargamos (ese horario desaparece)
+    setConfirmed(data);
+    setSelectedSlot(null);
+    reset();
+    setReloadSlots((n) => n + 1);
   };
 
   // boton de horario
@@ -434,10 +478,19 @@ function PatientHome() {
         </Card>
       )}
 
-      {/* 4. Banner / Resumen de Selección y Confirmación */}
+      {/* Error al reservar cuando ya no hay horario elegido (ej: turno tomado) */}
+      {submitError && !selectedSlot && (
+        <p className="rounded-lg bg-med-danger-bg px-3 py-2 text-xs text-med-danger-text">
+          {submitError}
+        </p>
+      )}
+
+      {/* 4. Resumen + motivo + confirmar (solo si eligió un horario) */}
       {selectedSlot && (
-        <div className="bg-med-primary-50 border border-med-primary-200/60 rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          {/* Detalle del Turno */}
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="bg-med-primary-50 border border-med-primary-200/60 rounded-2xl p-5 sm:p-6 flex flex-col gap-4"
+        >
           <div className="border-l-4 border-med-primary-900 pl-3.5">
             <span className="text-[10px] font-bold uppercase tracking-wider text-med-text-sub">
               Resumen de Selección
@@ -449,38 +502,62 @@ function PatientHome() {
               </span>
             </p>
             <p className="text-xs text-med-text-sub mt-0.5">
-              {currentDoctor?.name} • Duración: 30 min
+              {currentDoctor?.name} • {selectedSlot.startTime} a{' '}
+              {selectedSlot.endTime} hs
             </p>
           </div>
 
-          {/* Botón de Confirmación */}
-          <Button
-            type="button"
-            onClick={handleConfirmAppointment}
-            className="flex items-center justify-center gap-2 bg-med-primary-900 hover:bg-med-primary-800 text-white font-medium py-3 px-6 rounded-xl shadow-md text-sm shrink-0"
-          >
-            <span>Confirmar Turno</span>
-            <svg
-              className="w-5 h-5 text-emerald-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="reason"
+              className="text-xs font-semibold text-med-text-sub"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          </Button>
-        </div>
+              Motivo de la consulta
+            </label>
+            <textarea
+              id="reason"
+              rows={3}
+              placeholder="Ej: control anual, dolor de cabeza frecuente..."
+              className="w-full px-3.5 py-2.5 text-sm bg-white border border-med-border rounded-lg focus:outline-none focus:ring-2 focus:ring-med-primary-600"
+              {...register('reason', {
+                validate: (value) =>
+                  value.trim().length >= 5 ||
+                  'El motivo debe tener al menos 5 caracteres.',
+              })}
+            />
+            {errors.reason && (
+              <p className="text-xs text-med-danger-text">
+                {errors.reason.message}
+              </p>
+            )}
+          </div>
+
+          {submitError && (
+            <p className="rounded-lg bg-med-danger-bg px-3 py-2 text-xs text-med-danger-text">
+              {submitError}
+            </p>
+          )}
+
+          <div className="flex justify-end">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="py-3 px-6 rounded-xl text-sm disabled:opacity-60"
+            >
+              {isSubmitting ? 'Reservando...' : 'Confirmar Turno'}
+            </Button>
+          </div>
+        </form>
       )}
 
-      {/* Modal de Confirmación Exitosa */}
-      {confirmedModal && selectedSlot && (
+      {/* Modal de turno confirmado (con los datos que devolvió el back) */}
+      {confirmed && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-8 text-center animate-in fade-in zoom-in duration-150">
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-8 text-center"
+          >
             <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
               ✓
             </div>
@@ -488,24 +565,25 @@ function PatientHome() {
               ¡Turno Confirmado con Éxito!
             </h3>
             <p className="text-xs text-med-text-sub mt-2 leading-relaxed">
-              Tu turno con el{' '}
+              Tu turno con{' '}
+              <strong className="text-med-text-main">{confirmed.doctor}</strong>{' '}
+              quedó reservado para el{' '}
               <strong className="text-med-text-main">
-                {currentDoctor?.name}
-              </strong>{' '}
-              ha sido reservado para el{' '}
-              <strong className="text-med-text-main">
-                {formatLongDate(selectedSlot.date)} a las{' '}
-                {selectedSlot.startTime} hs
+                {formatLongDate(confirmed.date)} a las{' '}
+                {confirmed.startTime.slice(0, 5)} hs
               </strong>
               .
             </p>
 
             <div className="mt-5 p-3.5 bg-med-primary-50 border border-med-primary-200/60 rounded-xl text-xs text-med-primary-900 text-left space-y-1">
               <p>
-                <strong>Especialidad:</strong> {currentDoctor?.specialty?.name}
+                <strong>Especialidad:</strong> {confirmed.speciality ?? '-'}
               </p>
               <p>
-                <strong>Paciente:</strong> Johnathan Doe (DNI: 40.123.456)
+                <strong>Motivo:</strong> {confirmed.reason}
+              </p>
+              <p>
+                <strong>DNI del paciente:</strong> {getSessionDni()}
               </p>
             </div>
 
@@ -519,7 +597,7 @@ function PatientHome() {
               <Button
                 variant="secondary"
                 className="w-full text-xs py-2.5"
-                onClick={() => setConfirmedModal(false)}
+                onClick={() => setConfirmed(null)}
               >
                 Reservar Otro
               </Button>
