@@ -1,96 +1,39 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../../shared/components/Card';
 import Button from '../../shared/components/Button';
 import TablePagination from '../../shared/components/TablePagination';
 import ConfirmDialog from '../../shared/components/ConfirmDialog';
-import {
-  getSpecialties,
-  deleteSpecialty,
-} from '../services/specialtiesService';
+import useDebouncedSearch from '../../shared/hooks/useDebouncedSearch';
+import useConfirmDelete from '../../shared/hooks/useConfirmDelete';
+import useSpecialties from '../hooks/useSpecialties';
+import { deleteSpecialty } from '../services/specialtiesService';
 
 const PAGE_SIZE = 10;
-const MIN_SEARCH_LENGTH = 3;
 
 function SpecialtiesPage() {
   const navigate = useNavigate();
-
-  const [specialties, setSpecialties] = useState([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { searchTerm, setSearchTerm, search } = useDebouncedSearch();
 
-  const [toDelete, setToDelete] = useState(null);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState('');
+  const { specialties, total, loading, error, reload } = useSpecialties({
+    page,
+    pageSize: PAGE_SIZE,
+    name: search,
+  });
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      const term = searchTerm.trim();
-
-      setSearch(term.length >= MIN_SEARCH_LENGTH ? term : '');
-      setPage(1);
-    }, 400);
-
-    return () => clearTimeout(timeout);
-  }, [searchTerm]);
-
-  const loadSpecialties = useCallback(async () => {
-    setLoading(true);
-    setError('');
-
-    const { data, error } = await getSpecialties({
-      pageIndex: page,
-      pageSize: PAGE_SIZE,
-      name: search,
-    });
-
-    if (error) {
-      setError(error.message);
-      setSpecialties([]);
-      setTotal(0);
-    } else {
-      setSpecialties(data.data);
-      setTotal(data.total);
-    }
-
-    setLoading(false);
-  }, [page, search]);
-
-  useEffect(() => {
-    loadSpecialties();
-  }, [loadSpecialties]);
-
-  const closeDeleteDialog = () => {
-    setToDelete(null);
-    setDeleteError('');
-  };
-
-  const handleDelete = async () => {
-    setDeleting(true);
-    setDeleteError('');
-
-    const { error } = await deleteSpecialty(toDelete.id);
-
-    setDeleting(false);
-
-    if (error) {
-      setDeleteError(error.message);
-
-      return;
-    }
-
-    closeDeleteDialog();
-
-    if (specialties.length === 1 && page > 1) {
-      setPage(page - 1);
-    } else {
-      loadSpecialties();
-    }
-  };
+  const {
+    toDelete,
+    askDelete,
+    cancelDelete,
+    confirmDelete,
+    deleting,
+    deleteError,
+  } = useConfirmDelete(deleteSpecialty, () => {
+    // Si se borró el único registro de la página, volver a la anterior
+    if (specialties.length === 1 && page > 1) setPage(page - 1);
+    else reload();
+  });
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -128,7 +71,10 @@ function SpecialtiesPage() {
               placeholder="Buscar especialidad (mín. 3 letras)..."
               aria-label="Buscar especialidad por nombre"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
               className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-med-border rounded-lg text-med-text-main placeholder-med-text-muted focus:outline-none focus:ring-1 focus:ring-med-primary-600"
             />
           </div>
@@ -176,7 +122,7 @@ function SpecialtiesPage() {
                     <p className="text-med-danger-text">{error}</p>
                     <button
                       type="button"
-                      onClick={loadSpecialties}
+                      onClick={reload}
                       className="mt-2 text-xs font-semibold text-med-primary-700 underline"
                     >
                       Reintentar
@@ -226,7 +172,7 @@ function SpecialtiesPage() {
                         title="Eliminar especialidad"
                         aria-label={`Eliminar ${spec.name}`}
                         className="p-1.5 rounded-lg hover:bg-red-50 text-med-danger-text transition"
-                        onClick={() => setToDelete(spec)}
+                        onClick={() => askDelete(spec)}
                       >
                         <svg
                           className="w-4 h-4"
@@ -265,8 +211,8 @@ function SpecialtiesPage() {
         confirmText="Eliminar"
         loading={deleting}
         error={deleteError}
-        onConfirm={handleDelete}
-        onCancel={closeDeleteDialog}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
       />
     </div>
   );
