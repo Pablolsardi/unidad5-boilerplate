@@ -1,18 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useForm, useWatch } from 'react-hook-form';
 import Card from '../../shared/components/Card';
 import Button from '../../shared/components/Button';
-import {
-  getDoctors,
-  getDoctorAvailabilities,
-} from '../services/doctorsService';
-import {
-  DAYS,
-  toHHmm,
-  createAvailability,
-  updateAvailability,
-} from '../services/availabilityService';
+import useDoctors from '../hooks/useDoctors';
+import useDoctorAvailability from '../hooks/useDoctorAvailability';
+import { DAYS, toHHmm } from '../services/availabilityService';
 
 const LIST_PATH = '/admin/doctors';
 const DEFAULT_START = '08:00';
@@ -92,12 +85,14 @@ function DoctorAvailabilityPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [doctors, setDoctors] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
-  const [hasRules, setHasRules] = useState(false);
   const [formError, setFormError] = useState('');
   const [success, setSuccess] = useState(null);
+
+  // Combo "Seleccionar Profesional"
+  const { doctors } = useDoctors({ page: 1, pageSize: 100 });
+  const doctor = doctors.find((d) => d.id === id);
+
+  const { rules, loading, error: loadError, save } = useDoctorAvailability(id);
 
   const {
     register,
@@ -110,51 +105,16 @@ function DoctorAvailabilityPage() {
   // Para habilitar/deshabilitar las horas según el interruptor de cada día
   const days = useWatch({ control, name: 'days' });
 
-  const doctor = doctors.find((d) => d.id === id);
-
-  // Combo "Seleccionar Profesional"
+  // Cada vez que llegan las reglas del back, se cargan en la tabla
   useEffect(() => {
-    const loadDoctors = async () => {
-      const { data } = await getDoctors({ pageIndex: 1, pageSize: 100 });
+    reset({ days: rulesToWeek(rules) });
+  }, [rules, reset]);
 
-      if (data) setDoctors(data.data);
-    };
-
-    loadDoctors();
-  }, []);
-
-  const loadRules = useCallback(async () => {
-    // Sin profesional elegido no hay nada que cargar
-    if (!id) {
-      setLoading(false);
-
-      return;
-    }
-
-    setLoading(true);
-    setLoadError('');
-
-    const { data, error } = await getDoctorAvailabilities(id);
-
-    if (error) {
-      setLoadError(
-        error.code === 'ENTITY_NOTFOUND'
-          ? 'El médico no existe o fue eliminado.'
-          : error.message
-      );
-    } else {
-      setHasRules(data.length > 0);
-      reset({ days: rulesToWeek(data) });
-    }
-
-    setLoading(false);
-  }, [id, reset]);
-
+  // Al cambiar de médico se limpian los mensajes del anterior
   useEffect(() => {
     setFormError('');
     setSuccess(null);
-    loadRules();
-  }, [loadRules]);
+  }, [id]);
 
   const submit = async (values) => {
     setFormError('');
@@ -175,9 +135,7 @@ function DoctorAvailabilityPage() {
       endTime,
     }));
 
-    // POST la primera vez; PUT si el médico ya tiene reglas este mes
-    const save = hasRules ? updateAvailability : createAvailability;
-    const { data, error } = await save(id, ranges);
+    const { data, error } = await save(ranges);
 
     if (error) {
       const issues = [...new Set(error.details.map((d) => d.issue))]
@@ -190,7 +148,6 @@ function DoctorAvailabilityPage() {
     }
 
     setSuccess(data);
-    await loadRules();
   };
 
   return (

@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import Button from '../../shared/components/Button';
 import Input from '../../shared/components/Input';
-import { getSpecialties } from '../../specialties/services/specialtiesService';
+import useSpecialties from '../../specialties/hooks/useSpecialties';
 
 function DoctorForm({
   defaultValues,
@@ -11,9 +11,12 @@ function DoctorForm({
   onCancel,
 }) {
   const [serverError, setServerError] = useState('');
-  const [specialties, setSpecialties] = useState([]);
-  const [loadingSpecialties, setLoadingSpecialties] = useState(true);
-  const [specialtiesError, setSpecialtiesError] = useState('');
+
+  const {
+    specialties,
+    loading: loadingSpecialties,
+    error: specialtiesError,
+  } = useSpecialties({ page: 1, pageSize: 100 });
 
   const {
     register,
@@ -28,22 +31,6 @@ function DoctorForm({
       ...defaultValues,
     },
   });
-
-  useEffect(() => {
-    const load = async () => {
-      const { data, error } = await getSpecialties({
-        pageIndex: 1,
-        pageSize: 100,
-      });
-
-      if (error) setSpecialtiesError(error.message);
-      else setSpecialties(data.data);
-
-      setLoadingSpecialties(false);
-    };
-
-    load();
-  }, []);
 
   const submit = async (values) => {
     setServerError('');
