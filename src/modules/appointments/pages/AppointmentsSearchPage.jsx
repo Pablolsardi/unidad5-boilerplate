@@ -1,93 +1,71 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card from '../../shared/components/Card';
 import Button from '../../shared/components/Button';
+import { searchAppointments } from '../services/appointmentsService';
+import StatusBadge from '../../shared/components/StatusBadge';
+import { getSpecialties } from '../../specialties/services/specialtiesService';
+import { getDoctors } from '../../doctors/services/doctorsService';
+import TablePagination from '../../shared/components/TablePagination';
+
+const PAGE_SIZE = 10;
 
 function AppointmentsSearchPage() {
-  const [patientQuery, setPatientQuery] = useState('Johnathan Doe');
-  const [specialtyFilter, setSpecialtyFilter] = useState('Todas');
-  const [doctorFilter, setDoctorFilter] = useState('Todos');
-  const [dateFilter, setDateFilter] = useState('2023-10-24');
+  const [patientQuery, setPatientQuery] = useState('');
+  const [specialtyFilter, setSpecialtyFilter] = useState('');
+  const [doctorFilter, setDoctorFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [specialties, setSpecialties] = useState([]);
+  const [doctors, setDoctors] = useState([]);
+  const [appliedFilters, setAppliedFilters] = useState({});
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
-  const appointmentsData = [
-    {
-      id: 1,
-      date: '24 Oct, 2023',
-      time: '10:30 AM',
-      department: 'Cardiology',
-      doctor: 'Dr. Robert Smith',
-      patient: 'Johnathan Doe',
-      dni: '40.123.456',
-      status: 'CONFIRMADO',
-      statusType: 'confirmed',
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="1.75"
-            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-          />
-        </svg>
-      ),
-    },
-    {
-      id: 2,
-      date: '15 Oct, 2023',
-      time: '09:15 AM',
-      department: 'Neurology',
-      doctor: 'Dra. Garcia',
-      patient: 'Johnathan Doe',
-      dni: '40.123.456',
-      status: 'COMPLETADO',
-      statusType: 'completed',
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="1.75"
-            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-          />
-        </svg>
-      ),
-    },
-    {
-      id: 3,
-      date: '05 Oct, 2023',
-      time: '11:00 AM',
-      department: 'General Checkup',
-      doctor: 'Dr. Miller',
-      patient: 'Johnathan Doe',
-      dni: '40.123.456',
-      status: 'CANCELADO',
-      statusType: 'cancelled',
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="1.75"
-            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-          />
-        </svg>
-      ),
-    },
-  ];
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      setError('');
+
+      const { data, error } = await searchAppointments({
+        ...appliedFilters,
+        pageIndex: page,
+        pageSize: PAGE_SIZE,
+      });
+
+      if (error) {
+        setError(error.message);
+      } else {
+        setAppointments(data.data);
+        setTotal(data.total);
+      }
+
+      setLoading(false);
+    };
+
+    load();
+  }, [appliedFilters, page]);
+
+  useEffect(() => {
+    const loadOptions = async () => {
+      const [specialtiesRes, doctorsRes] = await Promise.all([
+        getSpecialties({ pageSize: 100 }),
+        getDoctors({ pageSize: 100 }),
+      ]);
+
+      setSpecialties(specialtiesRes.data?.data ?? []);
+      setDoctors(doctorsRes.data?.data ?? []);
+    };
+
+    loadOptions();
+  }, []);
+
+  const filteredDoctors = specialtyFilter
+    ? doctors.filter((d) => d.specialty?.id === specialtyFilter)
+    : doctors;
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="flex flex-col gap-6">
@@ -107,22 +85,6 @@ function AppointmentsSearchPage() {
           <h2 className="text-base font-bold text-med-primary-900">
             Criterios de Búsqueda
           </h2>
-          <div className="flex items-center gap-1.5 text-xs text-med-text-muted">
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            <span>Última actualización: hace un momento</span>
-          </div>
         </div>
 
         {/* Inputs de Filtros */}
@@ -130,7 +92,7 @@ function AppointmentsSearchPage() {
           {/* Nombre o DNI */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-med-text-sub">
-              Nombre o DNI del Paciente
+              DNI del Paciente
             </label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-med-text-muted">
@@ -150,9 +112,10 @@ function AppointmentsSearchPage() {
               </span>
               <input
                 type="text"
+                inputMode="numeric"
                 value={patientQuery}
                 onChange={(e) => setPatientQuery(e.target.value)}
-                placeholder="Nombre o DNI..."
+                placeholder="40123456"
                 className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-med-border rounded-lg text-med-text-main placeholder-med-text-muted focus:outline-none focus:ring-1 focus:ring-med-primary-600"
               />
             </div>
@@ -165,13 +128,18 @@ function AppointmentsSearchPage() {
             </label>
             <select
               value={specialtyFilter}
-              onChange={(e) => setSpecialtyFilter(e.target.value)}
+              onChange={(e) => {
+                setSpecialtyFilter(e.target.value);
+                setDoctorFilter('');
+              }}
               className="w-full px-3 py-2 text-xs bg-white border border-med-border rounded-lg text-med-text-main focus:outline-none focus:ring-1 focus:ring-med-primary-600"
             >
-              <option value="Todas">Todas las Especialidades</option>
-              <option value="Cardiology">Cardiology</option>
-              <option value="Neurology">Neurology</option>
-              <option value="General Checkup">General Checkup</option>
+              <option value="">Todas las especialidades</option>
+              {specialties.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -185,10 +153,12 @@ function AppointmentsSearchPage() {
               onChange={(e) => setDoctorFilter(e.target.value)}
               className="w-full px-3 py-2 text-xs bg-white border border-med-border rounded-lg text-med-text-main focus:outline-none focus:ring-1 focus:ring-med-primary-600"
             >
-              <option value="Todos">Todos los Doctores</option>
-              <option value="Dr. Robert Smith">Dr. Robert Smith</option>
-              <option value="Dra. Garcia">Dra. Garcia</option>
-              <option value="Dr. Miller">Dr. Miller</option>
+              <option value="">Todos los médicos</option>
+              {filteredDoctors.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -208,7 +178,15 @@ function AppointmentsSearchPage() {
           {/* Botón Aplicar Filtros */}
           <div>
             <Button
-              onClick={() => alert('Filtros aplicados')}
+              onClick={() => {
+                setPage(1);
+                setAppliedFilters({
+                  dni: patientQuery.replaceAll('.', ''),
+                  specialtyId: specialtyFilter,
+                  doctorId: doctorFilter,
+                  date: dateFilter,
+                });
+              }}
               className="w-full flex items-center justify-center gap-2 bg-med-primary-900 hover:bg-med-primary-800 text-white font-medium py-2 rounded-lg"
             >
               <svg
@@ -230,17 +208,49 @@ function AppointmentsSearchPage() {
         </div>
 
         {/* Chips de Filtros Activos */}
-        <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-med-border-subtle">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-sky-100/70 text-sky-800">
-            Paciente: Johnathan Doe
-          </span>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-sky-100/70 text-sky-800">
-            DNI: 40.123.456
-          </span>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-            Filtro Activo: Próximos 7 Días
-          </span>
-        </div>
+        {Object.values(appliedFilters).some(Boolean) && (
+          <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-med-border-subtle">
+            {appliedFilters.dni && (
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-sky-100/70 text-sky-800">
+                DNI: {appliedFilters.dni}
+              </span>
+            )}
+            {appliedFilters.specialtyId && (
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-sky-100/70 text-sky-800">
+                Especialidad:{' '}
+                {
+                  specialties.find((s) => s.id === appliedFilters.specialtyId)
+                    ?.name
+                }
+              </span>
+            )}
+            {appliedFilters.doctorId && (
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-sky-100/70 text-sky-800">
+                Médico:{' '}
+                {doctors.find((d) => d.id === appliedFilters.doctorId)?.name}
+              </span>
+            )}
+            {appliedFilters.date && (
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-sky-100/70 text-sky-800">
+                Fecha: {appliedFilters.date.split('-').reverse().join('/')}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setPatientQuery('');
+                setSpecialtyFilter('');
+                setDoctorFilter('');
+                setDateFilter('');
+                setPage(1);
+                setAppliedFilters({});
+              }}
+              className="text-xs font-semibold text-med-primary-700 hover:underline"
+            >
+              Limpiar filtros
+            </button>
+          </div>
+        )}
       </Card>
 
       {/* Card Inferior: Registros de Citas */}
@@ -256,7 +266,7 @@ function AppointmentsSearchPage() {
           <table className="w-full text-left text-sm">
             <thead className="bg-med-primary-50/70 text-[11px] uppercase tracking-wider text-med-text-sub border-b border-med-border">
               <tr>
-                <th className="px-6 py-3.5">Fecha</th>
+                <th className="px-6 py-3.5">Fecha y hora</th>
                 <th className="px-6 py-3.5">Departamento</th>
                 <th className="px-6 py-3.5">Paciente</th>
                 <th className="px-6 py-3.5 text-center">Estado</th>
@@ -264,99 +274,109 @@ function AppointmentsSearchPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-med-border-subtle">
-              {appointmentsData.map((item) => (
-                <tr
-                  key={item.id}
-                  className="hover:bg-gray-50/70 transition-colors"
-                >
-                  {/* Fecha y Hora */}
-                  <td className="px-6 py-4">
-                    <p className="font-bold text-med-primary-900 text-sm">
-                      {item.date}
-                    </p>
-                    <p className="text-xs text-med-text-muted mt-0.5">
-                      {item.time}
-                    </p>
-                  </td>
-
-                  {/* Departamento / Especialidad con Icono */}
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-med-primary-100 text-med-primary-700 flex items-center justify-center shrink-0">
-                        {item.icon}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-med-primary-900">
-                          {item.department}
-                        </p>
-                        <p className="text-xs text-med-text-muted">
-                          {item.doctor}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-
-                  {/* Paciente y DNI */}
-                  <td className="px-6 py-4">
-                    <p className="font-semibold text-med-text-main">
-                      {item.patient}
-                    </p>
-                    <p className="text-xs text-med-text-muted mt-0.5">
-                      DNI: {item.dni}
-                    </p>
-                  </td>
-
-                  {/* Estado (CONFIRMADO, COMPLETADO, CANCELADO) */}
-                  <td className="px-6 py-4 text-center">
-                    {item.statusType === 'confirmed' && (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-med-active-bg text-med-active-text">
-                        <span className="w-1.5 h-1.5 rounded-full bg-med-active-text" />
-                        {item.status}
-                      </span>
-                    )}
-                    {item.statusType === 'completed' && (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                        {item.status}
-                      </span>
-                    )}
-                    {item.statusType === 'cancelled' && (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-med-danger-bg text-med-danger-text">
-                        <span className="w-1.5 h-1.5 rounded-full bg-med-danger-text" />
-                        {item.status}
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Acciones */}
-                  <td className="px-6 py-4 text-right">
-                    <button
-                      onClick={() =>
-                        alert(`Ver detalle de cita de ${item.patient}`)
-                      }
-                      className="text-xs font-semibold text-med-primary-700 hover:text-med-primary-900 transition hover:underline"
-                    >
-                      Ver Detalle
-                    </button>
+              {loading && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-6 py-8 text-center text-med-text-muted"
+                  >
+                    Cargando turnos...
                   </td>
                 </tr>
-              ))}
+              )}
+
+              {!loading && error && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-6 py-8 text-center text-med-danger-text"
+                  >
+                    {error}
+                  </td>
+                </tr>
+              )}
+
+              {!loading && !error && appointments.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-6 py-8 text-center text-med-text-muted"
+                  >
+                    No se encontraron turnos.
+                  </td>
+                </tr>
+              )}
+              {!loading &&
+                appointments.map((item) => (
+                  <tr
+                    key={item.appointmentsId}
+                    className="hover:bg-gray-50/70 transition-colors"
+                  >
+                    {/* Fecha y Hora */}
+                    <td className="px-6 py-4">
+                      <p className="font-bold text-med-primary-900 text-sm">
+                        {item.date.split('-').reverse().join('/')}
+                      </p>
+                      <p className="text-xs text-med-text-muted mt-0.5">
+                        {item.startTime.slice(0, 5)} -{' '}
+                        {item.endTime.slice(0, 5)}
+                      </p>
+                    </td>
+
+                    {/* Departamento / Especialidad con Icono */}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <p className="font-semibold text-med-primary-900">
+                            {item.doctor.specialty?.name ?? 'Sin especialidad'}
+                          </p>
+                          <p className="text-xs text-med-text-muted">
+                            {item.doctor.name}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Paciente y DNI */}
+                    <td className="px-6 py-4">
+                      <p className="font-semibold text-med-text-main">
+                        {item.patient.fullName ?? 'Paciente'}
+                      </p>
+                      <p className="text-xs text-med-text-muted mt-0.5">
+                        DNI: {item.patient.dni}
+                      </p>
+                    </td>
+
+                    {/* Estado (CONFIRMADO, COMPLETADO, CANCELADO) */}
+                    <td className="px-6 py-4 text-center">
+                      <StatusBadge status={item.appointmentsStatus} />
+                    </td>
+
+                    {/* Acciones */}
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() =>
+                          alert(`Ver detalle de cita de ${item.patient.dni}`)
+                        }
+                        className="text-xs font-semibold text-med-primary-700 hover:text-med-primary-900 transition hover:underline"
+                      >
+                        Ver Detalle
+                      </button>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
 
         {/* Paginador inferior normalizado */}
-        <div className="p-4 bg-med-primary-50/50 border-t border-med-border flex items-center justify-between text-xs text-med-text-muted">
-          <span>Mostrando 3 de 42 registros</span>
-          <div className="flex items-center gap-1">
-            <button className="px-2.5 py-1 border border-med-border rounded bg-white text-med-text-sub hover:bg-gray-50">
-              ‹
-            </button>
-            <button className="px-2.5 py-1 border border-med-border rounded bg-white text-med-text-sub hover:bg-gray-50">
-              ›
-            </button>
-          </div>
-        </div>
+        <TablePagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={total}
+          pageSize={PAGE_SIZE}
+          onPageChange={setPage}
+        />
       </Card>
     </div>
   );
