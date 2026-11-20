@@ -92,8 +92,8 @@ function DoctorForm({
 
       <Input
         id="doctor-name"
-        label="Nombre completo"
-        placeholder="Ej: Dra. Elena Martínez"
+        label="Nombre Completo del Doctor"
+        placeholder="Ej: Dr. Alejandro Martínez"
         error={errors.name?.message}
         {...register('name', {
           required: 'El nombre es obligatorio.',
@@ -108,63 +108,67 @@ function DoctorForm({
         })}
       />
 
-      <Input
-        id="doctor-license"
-        label="Matrícula"
-        placeholder="Ej: MP-12345"
-        error={errors.licenseNumber?.message}
-        {...register('licenseNumber', {
-          required: 'La matrícula es obligatoria.',
-          validate: (v) =>
-            v.trim().length <= 50 ||
-            'La matrícula no puede superar los 50 caracteres.',
-        })}
-      />
-
-      <div className="flex flex-col gap-1.5 w-full">
-        <label
-          htmlFor="doctor-specialty"
-          className="text-xs font-semibold text-med-text-main"
-        >
-          Especialidad
-        </label>
-        <select
-          id="doctor-specialty"
-          disabled={loadingSpecialties || noSpecialties}
-          className={`w-full border rounded-lg px-3.5 py-2.5 text-sm bg-white text-med-text-main transition focus:outline-none focus:ring-2 focus:ring-med-primary-600 focus:border-transparent disabled:bg-gray-50 ${
-            errors.specialtyId
-              ? 'border-red-400 bg-red-50/20'
-              : 'border-med-border'
-          }`}
-          {...register('specialtyId', {
-            required: 'Elegí una especialidad.',
-          })}
-        >
-          <option value="">
-            {loadingSpecialties
-              ? 'Cargando especialidades...'
-              : 'Seleccione una especialidad'}
-          </option>
-          {specialties.map((spec) => (
-            <option key={spec.id} value={spec.id}>
-              {spec.name}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="flex flex-col gap-1.5 w-full">
+          <label
+            htmlFor="doctor-specialty"
+            className="text-xs font-semibold text-med-text-main"
+          >
+            Especialidad
+          </label>
+          <select
+            id="doctor-specialty"
+            disabled={loadingSpecialties || noSpecialties}
+            className={`w-full border rounded-lg px-3.5 py-2.5 text-sm bg-white text-med-text-main transition focus:outline-none focus:ring-2 focus:ring-med-primary-600 focus:border-transparent disabled:bg-gray-50 ${
+              errors.specialtyId
+                ? 'border-red-400 bg-red-50/20'
+                : 'border-med-border'
+            }`}
+            {...register('specialtyId', {
+              required: 'Elegí una especialidad.',
+            })}
+          >
+            <option value="">
+              {loadingSpecialties
+                ? 'Cargando especialidades...'
+                : 'Seleccione una especialidad'}
             </option>
-          ))}
-        </select>
-        {errors.specialtyId && (
-          <p className="text-xs text-red-500 font-medium">
-            {errors.specialtyId.message}
-          </p>
-        )}
-        {specialtiesError && (
-          <p className="text-xs text-red-500 font-medium">{specialtiesError}</p>
-        )}
-        {noSpecialties && (
-          <p className="text-xs text-med-text-muted">
-            No hay especialidades cargadas. Creá una antes de registrar un
-            médico.
-          </p>
-        )}
+            {specialties.map((spec) => (
+              <option key={spec.id} value={spec.id}>
+                {spec.name}
+              </option>
+            ))}
+          </select>
+          {errors.specialtyId && (
+            <p className="text-xs text-red-500 font-medium">
+              {errors.specialtyId.message}
+            </p>
+          )}
+          {specialtiesError && (
+            <p className="text-xs text-red-500 font-medium">
+              {specialtiesError}
+            </p>
+          )}
+          {noSpecialties && (
+            <p className="text-xs text-med-text-muted">
+              No hay especialidades cargadas. Creá una antes de registrar un
+              médico.
+            </p>
+          )}
+        </div>
+
+        <Input
+          id="doctor-license"
+          label="Número de Licencia Médica"
+          placeholder="Ej: ID-45920-X"
+          error={errors.licenseNumber?.message}
+          {...register('licenseNumber', {
+            required: 'La matrícula es obligatoria.',
+            validate: (v) =>
+              v.trim().length <= 50 ||
+              'La matrícula no puede superar los 50 caracteres.',
+          })}
+        />
       </div>
 
       <div className="flex justify-end gap-2 pt-2">

@@ -8,6 +8,7 @@ const LIST_PATH = '/admin/doctors';
 function DoctorFormPage() {
   const navigate = useNavigate();
 
+  // Devuelve el error (o null) para que el formulario lo muestre
   const handleSubmit = async (values) => {
     const { error } = await createDoctor(values);
 
@@ -27,20 +28,21 @@ function DoctorFormPage() {
           </Link>
           <span className="mx-1.5">›</span>
           <span className="text-med-text-main font-medium">
-            Registrar Nuevo Médico
+            Agregar Nuevo Doctor
           </span>
         </nav>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-med-text-main">
-          Registrar Nuevo Médico
+          Registrar Nuevo Doctor
         </h1>
         <p className="text-sm text-med-text-sub mt-1">
-          Complete los datos profesionales para dar de alta un médico.
+          Complete todos los campos obligatorios para integrar al nuevo
+          facultativo al sistema del centro médico.
         </p>
       </div>
 
       <Card className="border-med-border">
         <DoctorForm
-          submitText="Guardar Médico"
+          submitText="Guardar Doctor"
           onSubmit={handleSubmit}
           onCancel={() => navigate(LIST_PATH)}
         />
