@@ -5,10 +5,10 @@ import useAuth from '../../auth/hook/useAuth';
 function PatientLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
-  const { singout } = useAuth();
+  const { singout, email: sessionEmail, dni: sessionDni } = useAuth();
 
-  const email = localStorage.getItem('email') ?? '';
-  const dni = localStorage.getItem('dni') ?? '';
+  const email = sessionEmail ?? '';
+  const dni = sessionDni ?? '';
   const initials = email.slice(0, 2).toUpperCase() || 'P';
 
   const handleLogout = () => {

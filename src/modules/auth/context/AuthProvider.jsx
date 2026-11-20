@@ -14,21 +14,27 @@ function AuthProvider({ children }) {
 
   const [role, setRole] = useState(() => localStorage.getItem('role'));
   const [email, setEmail] = useState(() => localStorage.getItem('email'));
+  const [dni, setDni] = useState(() => localStorage.getItem('dni'));
 
   const singout = () => {
     localStorage.clear();
     setIsAuthenticated(false);
     setRole(null);
     setEmail(null);
+    setDni(null);
   };
 
-  const setAuthSession = (token, role, email) => {
+  const setAuthSession = (token, role, email, dni = null) => {
     localStorage.setItem('token', token);
     localStorage.setItem('role', role);
     localStorage.setItem('email', email);
+
+    if (dni) localStorage.setItem('dni', dni);
+
     setIsAuthenticated(true);
     setRole(role);
     setEmail(email);
+    setDni(dni);
   };
 
   const singinAdmin = async (email, password) => {
@@ -50,11 +56,9 @@ function AuthProvider({ children }) {
       return { error };
     }
 
-    setAuthSession(data.token, data.role, email);
-    localStorage.setItem('dni', dni);
-    localStorage.setItem('email', email);
+    setAuthSession(data.token, data.role, email, dni);
 
-    return { error: null }; 
+    return { error: null };
   };
 
   return (
@@ -63,6 +67,7 @@ function AuthProvider({ children }) {
         isAuthenticated,
         role,
         email,
+        dni,
         singinAdmin,
         singinPatient,
         singout,
