@@ -99,6 +99,10 @@ const routes = [
         element: <SpecialtyFormPage />,
       },
       {
+        path: 'specialties/:id/edit',
+        element: <SpecialtyFormPage />,
+      },
+      {
         path: 'doctors',
         element: <DoctorsPage />,
       },
