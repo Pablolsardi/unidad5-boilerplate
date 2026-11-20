@@ -230,14 +230,13 @@ function AppointmentsSearchPage() {
                 <th className="px-6 py-3.5">Departamento</th>
                 <th className="px-6 py-3.5">Paciente</th>
                 <th className="px-6 py-3.5 text-center">Estado</th>
-                <th className="px-6 py-3.5 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-med-border-subtle">
               {loading && (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={4}
                     className="px-6 py-8 text-center text-med-text-muted"
                   >
                     Cargando turnos...
@@ -248,7 +247,7 @@ function AppointmentsSearchPage() {
               {!loading && error && (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={4}
                     className="px-6 py-8 text-center text-med-danger-text"
                   >
                     {error}
@@ -259,7 +258,7 @@ function AppointmentsSearchPage() {
               {!loading && !error && appointments.length === 0 && (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={4}
                     className="px-6 py-8 text-center text-med-text-muted"
                   >
                     No se encontraron turnos.
@@ -310,18 +309,6 @@ function AppointmentsSearchPage() {
                     {/* Estado */}
                     <td className="px-6 py-4 text-center">
                       <StatusBadge status={item.appointmentsStatus} />
-                    </td>
-
-                    {/* Acciones */}
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() =>
-                          alert(`Ver detalle de cita de ${item.patient.dni}`)
-                        }
-                        className="text-xs font-semibold text-med-primary-700 hover:text-med-primary-900 transition hover:underline"
-                      >
-                        Ver Detalle
-                      </button>
                     </td>
                   </tr>
                 ))}
