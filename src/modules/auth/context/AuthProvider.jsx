@@ -1,5 +1,4 @@
 import { createContext, useState } from 'react';
-import { login } from '../services/login';
 import { loginAdmin } from '../services/adminLogin';
 import { loginPatient } from '../services/patientLogin';
 
@@ -26,18 +25,6 @@ function AuthProvider({ children }) {
     localStorage.setItem('role', role);
     setIsAuthenticated(true);
     setRole(role);
-  };
-
-  const singin = async (username, password) => {
-    const { data, error } = await login(username, password);
-
-    if (error) {
-      return { error };
-    }
-
-    setAuthSession(data.token, data.role);
-
-    return { error: null };
   };
 
   const singinAdmin = async (email, password) => {
@@ -70,7 +57,6 @@ function AuthProvider({ children }) {
       value={{
         isAuthenticated,
         role,
-        singin,
         singinAdmin,
         singinPatient,
         singout,

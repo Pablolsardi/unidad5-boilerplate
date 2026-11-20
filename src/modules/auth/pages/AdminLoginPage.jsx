@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuth from '../hook/useAuth';
-import { frontendErrorMessage } from '../helpers/backendError';
 
 function AdminLoginPage() {
   const [errorMessage, setErrorMessage] = useState('');
@@ -19,23 +18,13 @@ function AdminLoginPage() {
 
   const onValid = async (formData) => {
     try {
-      const { error } = await singinAdmin(formData.username, formData.password);
-
-      if (error) {
-        setErrorMessage(
-          error.frontendErrorMessage || 'Credenciales administrativas inválidas'
-        );
-
-        return;
-      }
-
+      await singinAdmin(formData.username, formData.password);
       navigate('/admin/home');
     } catch (error) {
-      if (error?.response?.data?.code) {
-        setErrorMessage(frontendErrorMessage[error?.response?.data?.code]);
-      } else {
-        setErrorMessage('Error al conectar con el servicio administrativo');
-      }
+      setErrorMessage(
+        error?.response?.data?.message ??
+          'Error al conectar con el servicio administrativo'
+      );
     }
   };
 
@@ -123,7 +112,7 @@ function AdminLoginPage() {
             {/* Contraseña */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-med-text-main">
-                DNI
+                Contraseña
               </label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-med-text-muted">
@@ -150,14 +139,18 @@ function AdminLoginPage() {
                       : 'border-med-border'
                   }`}
                   {...register('password', {
-                    required: 'El DNI es obligatorio',
+                    required: 'La contraseña es obligatoria',
                   })}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Ocultar DNI' : 'Mostrar DNI'}
-                  title={showPassword ? 'Ocultar DNI' : 'Mostrar DNI'}
+                  aria-label={
+                    showPassword ? 'Ocultar Contraseña' : 'Mostrar Contraseña'
+                  }
+                  title={
+                    showPassword ? 'Ocultar Contraseña' : 'Mostrar Contraseña'
+                  }
                   className="absolute inset-y-0 right-0 flex items-center pr-3 text-med-text-muted hover:text-med-text-main"
                 >
                   {showPassword ? (
@@ -212,13 +205,6 @@ function AdminLoginPage() {
               <span>Iniciar Sesión</span>
               <span className="text-sm">→</span>
             </button>
-
-            <div className="bg-med-primary-50 border border-med-primary-200/60 rounded-lg p-2.5 text-center text-xs text-med-primary-900">
-              <span className="font-semibold">Credenciales de prueba:</span>
-              <br />
-              Email: <code>admin@medportal.com</code> | Clave:{' '}
-              <code>admin123</code>
-            </div>
 
             {/* Error Message */}
             {errorMessage && (
