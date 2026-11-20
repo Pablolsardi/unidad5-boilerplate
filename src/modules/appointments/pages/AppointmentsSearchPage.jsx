@@ -3,21 +3,27 @@ import Card from '../../shared/components/Card';
 import Button from '../../shared/components/Button';
 import { searchAppointments } from '../services/appointmentsService';
 import StatusBadge from '../../shared/components/StatusBadge';
+import { getSpecialties } from '../../specialties/services/specialtiesService';
+import { getDoctors } from '../../doctors/services/doctorsService';
 
 function AppointmentsSearchPage() {
-  const [patientQuery, setPatientQuery] = useState('Johnathan Doe');
-  const [specialtyFilter, setSpecialtyFilter] = useState('Todas');
-  const [doctorFilter, setDoctorFilter] = useState('Todos');
-  const [dateFilter, setDateFilter] = useState('2023-10-24');
+  const [patientQuery, setPatientQuery] = useState('');
+  const [specialtyFilter, setSpecialtyFilter] = useState('');
+  const [doctorFilter, setDoctorFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [specialties, setSpecialties] = useState([]);
+  const [doctors, setDoctors] = useState([]);
+  const [appliedFilters, setAppliedFilters] = useState({});
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
+      setError('');
 
-      const { data, error } = await searchAppointments();
+      const { data, error } = await searchAppointments(appliedFilters);
 
       if (error) {
         setError(error.message);
@@ -29,7 +35,25 @@ function AppointmentsSearchPage() {
     };
 
     load();
+  }, [appliedFilters]);
+
+  useEffect(() => {
+    const loadOptions = async () => {
+      const [specialtiesRes, doctorsRes] = await Promise.all([
+        getSpecialties({ pageSize: 100 }),
+        getDoctors({ pageSize: 100 }),
+      ]);
+
+      setSpecialties(specialtiesRes.data?.data ?? []);
+      setDoctors(doctorsRes.data?.data ?? []);
+    };
+
+    loadOptions();
   }, []);
+
+  const filteredDoctors = specialtyFilter
+    ? doctors.filter((d) => d.specialty?.id === specialtyFilter)
+    : doctors;
 
   return (
     <div className="flex flex-col gap-6">
@@ -72,7 +96,7 @@ function AppointmentsSearchPage() {
           {/* Nombre o DNI */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-med-text-sub">
-              Nombre o DNI del Paciente
+              DNI del Paciente
             </label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-med-text-muted">
@@ -92,9 +116,10 @@ function AppointmentsSearchPage() {
               </span>
               <input
                 type="text"
+                inputMode="numeric"
                 value={patientQuery}
                 onChange={(e) => setPatientQuery(e.target.value)}
-                placeholder="Nombre o DNI..."
+                placeholder="99.999.999"
                 className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-med-border rounded-lg text-med-text-main placeholder-med-text-muted focus:outline-none focus:ring-1 focus:ring-med-primary-600"
               />
             </div>
@@ -107,13 +132,18 @@ function AppointmentsSearchPage() {
             </label>
             <select
               value={specialtyFilter}
-              onChange={(e) => setSpecialtyFilter(e.target.value)}
+              onChange={(e) => {
+                setSpecialtyFilter(e.target.value);
+                setDoctorFilter('');
+              }}
               className="w-full px-3 py-2 text-xs bg-white border border-med-border rounded-lg text-med-text-main focus:outline-none focus:ring-1 focus:ring-med-primary-600"
             >
-              <option value="Todas">Todas las Especialidades</option>
-              <option value="Cardiology">Cardiology</option>
-              <option value="Neurology">Neurology</option>
-              <option value="General Checkup">General Checkup</option>
+              <option value="">Todas las especialidades</option>
+              {specialties.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -127,10 +157,12 @@ function AppointmentsSearchPage() {
               onChange={(e) => setDoctorFilter(e.target.value)}
               className="w-full px-3 py-2 text-xs bg-white border border-med-border rounded-lg text-med-text-main focus:outline-none focus:ring-1 focus:ring-med-primary-600"
             >
-              <option value="Todos">Todos los Doctores</option>
-              <option value="Dr. Robert Smith">Dr. Robert Smith</option>
-              <option value="Dra. Garcia">Dra. Garcia</option>
-              <option value="Dr. Miller">Dr. Miller</option>
+              <option value="">Todos los médicos</option>
+              {filteredDoctors.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -150,7 +182,14 @@ function AppointmentsSearchPage() {
           {/* Botón Aplicar Filtros */}
           <div>
             <Button
-              onClick={() => alert('Filtros aplicados')}
+              onClick={() =>
+                setAppliedFilters({
+                  dni: patientQuery,
+                  specialtyId: specialtyFilter,
+                  doctorId: doctorFilter,
+                  date: dateFilter,
+                })
+              }
               className="w-full flex items-center justify-center gap-2 bg-med-primary-900 hover:bg-med-primary-800 text-white font-medium py-2 rounded-lg"
             >
               <svg
@@ -238,63 +277,65 @@ function AppointmentsSearchPage() {
                   </td>
                 </tr>
               )}
-              {appointments.map((item) => (
-                <tr
-                  key={item.appointmentsId}
-                  className="hover:bg-gray-50/70 transition-colors"
-                >
-                  {/* Fecha y Hora */}
-                  <td className="px-6 py-4">
-                    <p className="font-bold text-med-primary-900 text-sm">
-                      {item.date.split('-').reverse().join('/')}
-                    </p>
-                    <p className="text-xs text-med-text-muted mt-0.5">
-                      {item.startTime.slice(0, 5)} - {item.endTime.slice(0, 5)}
-                    </p>
-                  </td>
+              {!loading &&
+                appointments.map((item) => (
+                  <tr
+                    key={item.appointmentsId}
+                    className="hover:bg-gray-50/70 transition-colors"
+                  >
+                    {/* Fecha y Hora */}
+                    <td className="px-6 py-4">
+                      <p className="font-bold text-med-primary-900 text-sm">
+                        {item.date.split('-').reverse().join('/')}
+                      </p>
+                      <p className="text-xs text-med-text-muted mt-0.5">
+                        {item.startTime.slice(0, 5)} -{' '}
+                        {item.endTime.slice(0, 5)}
+                      </p>
+                    </td>
 
-                  {/* Departamento / Especialidad con Icono */}
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div>
-                        <p className="font-semibold text-med-primary-900">
-                          {item.doctor.specialty?.name ?? 'Sin especialidad'}
-                        </p>
-                        <p className="text-xs text-med-text-muted">
-                          {item.doctor.name}
-                        </p>
+                    {/* Departamento / Especialidad con Icono */}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <p className="font-semibold text-med-primary-900">
+                            {item.doctor.specialty?.name ?? 'Sin especialidad'}
+                          </p>
+                          <p className="text-xs text-med-text-muted">
+                            {item.doctor.name}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </td>
+                    </td>
 
-                  {/* Paciente y DNI */}
-                  <td className="px-6 py-4">
-                    <p className="font-semibold text-med-text-main">
-                      {item.patient.fullName ?? 'Paciente'}
-                    </p>
-                    <p className="text-xs text-med-text-muted mt-0.5">
-                      DNI: {item.patient.dni}
-                    </p>
-                  </td>
+                    {/* Paciente y DNI */}
+                    <td className="px-6 py-4">
+                      <p className="font-semibold text-med-text-main">
+                        {item.patient.fullName ?? 'Paciente'}
+                      </p>
+                      <p className="text-xs text-med-text-muted mt-0.5">
+                        DNI: {item.patient.dni}
+                      </p>
+                    </td>
 
-                  {/* Estado (CONFIRMADO, COMPLETADO, CANCELADO) */}
-                  <td className="px-6 py-4 text-center">
-                    <StatusBadge status={item.appointmentsStatus} />
-                  </td>
+                    {/* Estado (CONFIRMADO, COMPLETADO, CANCELADO) */}
+                    <td className="px-6 py-4 text-center">
+                      <StatusBadge status={item.appointmentsStatus} />
+                    </td>
 
-                  {/* Acciones */}
-                  <td className="px-6 py-4 text-right">
-                    <button
-                      onClick={() =>
-                        alert(`Ver detalle de cita de ${item.patient.dni}`)
-                      }
-                      className="text-xs font-semibold text-med-primary-700 hover:text-med-primary-900 transition hover:underline"
-                    >
-                      Ver Detalle
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    {/* Acciones */}
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() =>
+                          alert(`Ver detalle de cita de ${item.patient.dni}`)
+                        }
+                        className="text-xs font-semibold text-med-primary-700 hover:text-med-primary-900 transition hover:underline"
+                      >
+                        Ver Detalle
+                      </button>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
