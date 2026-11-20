@@ -6,6 +6,8 @@ const errorMessages = {
   PATIENT_LOGIN_INVALID: 'Email y/o DNI incorrectos.',
   PATIENT_DNI_CONFLICT: 'El DNI ya está registrado con otro email.',
   PATIENT_LOGIN_CONFLICT: 'El email ya está registrado con otro DNI.',
+  REGISTER_USER_INVALID: 'Los datos del administrador no son válidos.',
+  REGISTER_USER_CONFLICT: 'No se pudo registrar el administrador.',
 
   // Turnos
   APPOINTMENT_CONFLICT: 'El turno ya fue reservado. Elegí otro horario.',

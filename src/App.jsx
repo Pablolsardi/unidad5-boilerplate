@@ -8,6 +8,7 @@ import ProtectedRoute from './modules/auth/components/ProtectedRoute';
 
 // Auth Module
 import AdminLoginPage from './modules/auth/pages/AdminLoginPage';
+import AdminRegisterPage from './modules/auth/pages/AdminRegisterPage';
 
 // Patients Module
 import PatientLoginPage from './modules/patients/pages/PatientLoginPage';
@@ -121,6 +122,10 @@ const routes = [
       {
         path: 'doctors/:id/availability',
         element: <DoctorAvailabilityPage />,
+      },
+      {
+        path: 'admins/new',
+        element: <AdminRegisterPage />,
       },
     ],
   },
