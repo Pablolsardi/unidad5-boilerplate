@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import Button from '../../shared/components/Button';
 import useAuth from '../../auth/hook/useAuth';
+import ErrorAlert from '../../shared/components/ErrorAlert';
 
 function PatientLoginPage() {
   const [errorMessage, setErrorMessage] = useState('');
@@ -154,11 +155,7 @@ function PatientLoginPage() {
             Ingresar Paciente
           </Button>
 
-          {errorMessage && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600 text-center">
-              {errorMessage}
-            </div>
-          )}
+          <ErrorAlert className="text-center">{errorMessage}</ErrorAlert>
         </form>
       </div>
 
