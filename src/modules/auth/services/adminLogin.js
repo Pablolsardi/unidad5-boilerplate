@@ -1,10 +1,10 @@
 import { instance } from '../../shared/api/axiosInstance';
+import { apiRequest } from '../../shared/helpers/apiRequest';
 
-export const loginAdmin = async (email, password) => {
-  const response = await instance.post('api/auth/admin/login', {
-    email,
-    password,
-  });
+function loginAdmin(email, password) {
+  return apiRequest(() =>
+    instance.post('api/auth/admin/login', { email, password })
+  );
+}
 
-  return { data: response.data, error: null };
-};
+export { loginAdmin };

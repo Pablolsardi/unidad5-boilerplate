@@ -17,15 +17,21 @@ function PatientLoginPage() {
   const { singinPatient } = useAuth();
 
   const onValid = async (formData) => {
-    try {
-      await singinPatient(formData.email, formData.dni);
-      navigate('/');
-    } catch (error) {
+    setErrorMessage('');
+
+    const { error } = await singinPatient(formData.email, formData.dni);
+
+    if (error) {
       setErrorMessage(
-        error?.response?.data?.message ??
-          'Error al conectar con el servicio de pacientes'
+        error.code === 'AUTHENTICATION_FAILED'
+          ? 'Email y/o DNI incorrectos.'
+          : error.message
       );
+
+      return;
     }
+
+    navigate('/');
   };
 
   return (
