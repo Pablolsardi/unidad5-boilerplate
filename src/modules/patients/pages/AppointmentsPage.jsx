@@ -3,8 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import Card from '../../shared/components/Card';
 import Button from '../../shared/components/Button';
 import StatusBadge from '../../shared/components/StatusBadge';
-import { getMyAppointments } from '../services/appointmentsService';
 import { formatLongDate, isPastSlot } from '../helpers/dateHelpers';
+import ConfirmDialog from '../../shared/components/ConfirmDialog';
+import {
+  cancelAppointment,
+  getMyAppointments,
+} from '../services/appointmentsService';
 
 function AppointmentsPage() {
   const navigate = useNavigate();
@@ -12,6 +16,12 @@ function AppointmentsPage() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+
+  // Cancelacion
+  const [toCancel, setToCancel] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   // Al entrar a la página: traer los turnos del paciente logueado
   useEffect(() => {
@@ -45,6 +55,35 @@ function AppointmentsPage() {
     };
   }, []);
 
+  const openCancelDialog = (appt) => {
+    setToCancel(appt);
+    setCancelError('');
+    setSuccessMsg('');
+  };
+
+  const closeCancelDialog = () => {
+    setToCancel(null);
+    setCancelError('');
+  };
+
+  const handleConfirmCancel = async () => {
+    setCancelling(true);
+    const { error } = await cancelAppointment(toCancel.id);
+
+    setCancelling(false);
+
+    if (error) {
+      setCancelError(error.message);
+
+      return;
+    }
+
+    // El back solo devuelve turnos reservados, sacamos el cancelado de la lista
+    setAppointments((prev) => prev.filter((a) => a.id !== toCancel.id));
+    setSuccessMsg('El turno fue cancelado.');
+    setToCancel(null);
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -58,6 +97,12 @@ function AppointmentsPage() {
         </div>
         <Button onClick={() => navigate('/')}>+ Solicitar Nuevo Turno</Button>
       </div>
+
+      {successMsg && (
+        <p className="rounded-lg bg-med-active-bg px-3 py-2 text-xs text-med-active-text">
+          {successMsg}
+        </p>
+      )}
 
       {loading && (
         <p className="py-10 text-center text-sm text-med-text-sub">
@@ -125,7 +170,7 @@ function AppointmentsPage() {
                   <Button
                     variant="outline"
                     className="w-full text-xs"
-                    onClick={() => alert(`Cancelando turno ${appt.id}`)}
+                    onClick={() => openCancelDialog(appt)}
                   >
                     Cancelar Turno
                   </Button>
@@ -135,6 +180,20 @@ function AppointmentsPage() {
           );
         })}
       </div>
+      <ConfirmDialog
+        open={toCancel !== null}
+        title="¿Cancelar este turno?"
+        message={
+          toCancel &&
+          `Turno con ${toCancel.doctor} el ${formatLongDate(toCancel.date)} a las ${toCancel.startTime.slice(0, 5)} hs. Esta acción no se puede deshacer.`
+        }
+        confirmText="Sí, cancelar turno"
+        cancelText="Volver"
+        loading={cancelling}
+        error={cancelError}
+        onConfirm={handleConfirmCancel}
+        onCancel={closeCancelDialog}
+      />
     </div>
   );
 }
