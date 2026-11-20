@@ -1,71 +1,50 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Card from '../../shared/components/Card';
 import Button from '../../shared/components/Button';
-import { searchAppointments } from '../services/appointmentsService';
 import StatusBadge from '../../shared/components/StatusBadge';
-import { getSpecialties } from '../../specialties/services/specialtiesService';
-import { getDoctors } from '../../doctors/services/doctorsService';
 import TablePagination from '../../shared/components/TablePagination';
-
-const PAGE_SIZE = 10;
+import useAppointmentsSearch from '../hooks/useAppointmentsSearch';
+import useSearchOptions from '../hooks/useSearchOptions';
 
 function AppointmentsSearchPage() {
   const [patientQuery, setPatientQuery] = useState('');
   const [specialtyFilter, setSpecialtyFilter] = useState('');
   const [doctorFilter, setDoctorFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
-  const [appointments, setAppointments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [specialties, setSpecialties] = useState([]);
-  const [doctors, setDoctors] = useState([]);
-  const [appliedFilters, setAppliedFilters] = useState({});
-  const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      setError('');
+  const {
+    appointments,
+    loading,
+    error,
+    page,
+    setPage,
+    total,
+    totalPages,
+    pageSize,
+    filters,
+    applyFilters,
+    clearFilters,
+  } = useAppointmentsSearch();
 
-      const { data, error } = await searchAppointments({
-        ...appliedFilters,
-        pageIndex: page,
-        pageSize: PAGE_SIZE,
-      });
+  const { specialties, doctorsBySpecialty, specialtyName, doctorName } =
+    useSearchOptions();
 
-      if (error) {
-        setError(error.message);
-      } else {
-        setAppointments(data.data);
-        setTotal(data.total);
-      }
+  const handleApply = () => {
+    applyFilters({
+      dni: patientQuery.replaceAll('.', ''),
+      specialtyId: specialtyFilter,
+      doctorId: doctorFilter,
+      date: dateFilter,
+    });
+  };
 
-      setLoading(false);
-    };
-
-    load();
-  }, [appliedFilters, page]);
-
-  useEffect(() => {
-    const loadOptions = async () => {
-      const [specialtiesRes, doctorsRes] = await Promise.all([
-        getSpecialties({ pageSize: 100 }),
-        getDoctors({ pageSize: 100 }),
-      ]);
-
-      setSpecialties(specialtiesRes.data?.data ?? []);
-      setDoctors(doctorsRes.data?.data ?? []);
-    };
-
-    loadOptions();
-  }, []);
-
-  const filteredDoctors = specialtyFilter
-    ? doctors.filter((d) => d.specialty?.id === specialtyFilter)
-    : doctors;
-
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const handleClear = () => {
+    setPatientQuery('');
+    setSpecialtyFilter('');
+    setDoctorFilter('');
+    setDateFilter('');
+    clearFilters();
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -90,7 +69,7 @@ function AppointmentsSearchPage() {
 
         {/* Inputs de Filtros */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 mt-4 items-end">
-          {/* Nombre o DNI */}
+          {/* DNI */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-med-text-sub">
               DNI del Paciente
@@ -155,7 +134,7 @@ function AppointmentsSearchPage() {
               className="w-full px-3 py-2 text-xs bg-white border border-med-border rounded-lg text-med-text-main focus:outline-none focus:ring-1 focus:ring-med-primary-600"
             >
               <option value="">Todos los médicos</option>
-              {filteredDoctors.map((d) => (
+              {doctorsBySpecialty(specialtyFilter).map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
                 </option>
@@ -179,15 +158,7 @@ function AppointmentsSearchPage() {
           {/* Botón Aplicar Filtros */}
           <div>
             <Button
-              onClick={() => {
-                setPage(1);
-                setAppliedFilters({
-                  dni: patientQuery.replaceAll('.', ''),
-                  specialtyId: specialtyFilter,
-                  doctorId: doctorFilter,
-                  date: dateFilter,
-                });
-              }}
+              onClick={handleApply}
               className="w-full flex items-center justify-center gap-2 bg-med-primary-900 hover:bg-med-primary-800 text-white font-medium py-2 rounded-lg"
             >
               <svg
@@ -209,43 +180,31 @@ function AppointmentsSearchPage() {
         </div>
 
         {/* Chips de Filtros Activos */}
-        {Object.values(appliedFilters).some(Boolean) && (
+        {Object.values(filters).some(Boolean) && (
           <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-med-border-subtle">
-            {appliedFilters.dni && (
+            {filters.dni && (
               <span className="px-3 py-1 rounded-full text-xs font-medium bg-sky-100/70 text-sky-800">
-                DNI: {appliedFilters.dni}
+                DNI: {filters.dni}
               </span>
             )}
-            {appliedFilters.specialtyId && (
+            {filters.specialtyId && (
               <span className="px-3 py-1 rounded-full text-xs font-medium bg-sky-100/70 text-sky-800">
-                Especialidad:{' '}
-                {
-                  specialties.find((s) => s.id === appliedFilters.specialtyId)
-                    ?.name
-                }
+                Especialidad: {specialtyName(filters.specialtyId)}
               </span>
             )}
-            {appliedFilters.doctorId && (
+            {filters.doctorId && (
               <span className="px-3 py-1 rounded-full text-xs font-medium bg-sky-100/70 text-sky-800">
-                Médico:{' '}
-                {doctors.find((d) => d.id === appliedFilters.doctorId)?.name}
+                Médico: {doctorName(filters.doctorId)}
               </span>
             )}
-            {appliedFilters.date && (
+            {filters.date && (
               <span className="px-3 py-1 rounded-full text-xs font-medium bg-sky-100/70 text-sky-800">
-                Fecha: {appliedFilters.date.split('-').reverse().join('/')}
+                Fecha: {filters.date.split('-').reverse().join('/')}
               </span>
             )}
             <button
               type="button"
-              onClick={() => {
-                setPatientQuery('');
-                setSpecialtyFilter('');
-                setDoctorFilter('');
-                setDateFilter('');
-                setPage(1);
-                setAppliedFilters({});
-              }}
+              onClick={handleClear}
               className="text-xs font-semibold text-med-primary-700 hover:underline"
             >
               Limpiar filtros
@@ -254,15 +213,15 @@ function AppointmentsSearchPage() {
         )}
       </Card>
 
-      {/* Card Inferior: Registros de Citas */}
+      {/* Card Inferior: Registros de Turnos */}
       <Card className="p-0 overflow-hidden border-med-border">
         <div className="p-5 border-b border-med-border">
           <h2 className="text-base font-bold text-med-primary-900">
-            Registros de Citas
+            Registros de Turnos
           </h2>
         </div>
 
-        {/* Tabla de Citas */}
+        {/* Tabla de Turnos */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-med-primary-50/70 text-[11px] uppercase tracking-wider text-med-text-sub border-b border-med-border">
@@ -324,7 +283,7 @@ function AppointmentsSearchPage() {
                       </p>
                     </td>
 
-                    {/* Departamento / Especialidad con Icono */}
+                    {/* Especialidad y médico */}
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div>
@@ -348,7 +307,7 @@ function AppointmentsSearchPage() {
                       </p>
                     </td>
 
-                    {/* Estado (CONFIRMADO, COMPLETADO, CANCELADO) */}
+                    {/* Estado */}
                     <td className="px-6 py-4 text-center">
                       <StatusBadge status={item.appointmentsStatus} />
                     </td>
@@ -370,12 +329,12 @@ function AppointmentsSearchPage() {
           </table>
         </div>
 
-        {/* Paginador inferior normalizado */}
+        {/* Paginador */}
         <TablePagination
           currentPage={page}
           totalPages={totalPages}
           totalItems={total}
-          pageSize={PAGE_SIZE}
+          pageSize={pageSize}
           onPageChange={setPage}
         />
       </Card>
