@@ -42,7 +42,7 @@ const routes = [
   {
     path: '/',
     element: (
-      <ProtectedRoute redirectTo="/login" allowedRole="PACIENTE">
+      <ProtectedRoute redirectTo="/login" allowedRoles={['PACIENTE']}>
         <PatientLayout />
       </ProtectedRoute>
     ),
@@ -62,7 +62,10 @@ const routes = [
   {
     path: '/admin',
     element: (
-      <ProtectedRoute redirectTo="/admin/login" allowedRole="ADMINISTRADOR">
+      <ProtectedRoute
+        redirectTo="/admin/login"
+        allowedRoles={['ADMINISTRADOR']}
+      >
         <DashboardLayout />
       </ProtectedRoute>
     ),
@@ -76,16 +79,16 @@ const routes = [
         element: <OverviewPage />,
       },
       {
-        path: 'patients',
+        path: 'appointments',
         element: <AppointmentsSearchPage />,
       },
       {
         path: 'patient-search',
-        element: <AppointmentsSearchPage />,
+        element: <Navigate to="/admin/appointments" replace />,
       },
       {
-        path: 'appointments',
-        element: <Navigate to="/admin/patients" replace />,
+        path: 'patients',
+        element: <Navigate to="/admin/appointments" replace />,
       },
       {
         path: 'specialties',

@@ -72,10 +72,11 @@ function AppointmentsSearchPage() {
       {/* Título de la página */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-med-text-main">
-          Búsqueda y Filtrado de Citas
+          Búsqueda de Turnos
         </h1>
         <p className="text-sm text-med-text-sub mt-1">
-          Gestione y supervise el flujo de pacientes del departamento.
+          Consulte y filtre los turnos por especialidad, médico, paciente o
+          fecha.
         </p>
       </div>
 
