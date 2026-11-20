@@ -4,10 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import Card from '../../shared/components/Card';
 import Button from '../../shared/components/Button';
 import { getSpecialties } from '../../specialties/services/specialtiesService';
-import {
-  getDoctors,
-  getDoctorSlots,
-} from '../../doctors/services/doctorsService';
+import useDoctorsBySpecialty from '../hooks/useDoctorsBySpecialty';
+import ErrorAlert from '../../shared/components/ErrorAlert';
+import { createAppointment } from '../services/appointmentsService';
+import useAuth from '../../auth/hook/useAuth';
+import { getDoctorSlots } from '../../doctors/services/doctorsService';
 import {
   addDays,
   formatLongDate,
@@ -20,8 +21,6 @@ import {
   parseDate,
   startOfWeek,
 } from '../helpers/dateHelpers';
-import { createAppointment } from '../services/appointmentsService';
-import useAuth from '../../auth/hook/useAuth';
 
 // Errores que significan "ese horario ya no sirve": hay que recargar los horarios
 const SLOT_ERRORS = ['APPOINTMENT_CONFLICT', 'APPOINTMENT_PAST_DATE'];
@@ -33,10 +32,12 @@ function PatientHome() {
 
   const [specialties, setSpecialties] = useState([]);
   const [specialtyId, setSpecialtyId] = useState('');
-
-  const [doctors, setDoctors] = useState([]);
   const [doctorId, setDoctorId] = useState('');
-  const [loadingDoctors, setLoadingDoctors] = useState(false);
+  const {
+    doctors,
+    loading: loadingDoctors,
+    error: doctorsError,
+  } = useDoctorsBySpecialty(specialtyId);
 
   const [loadError, setLoadError] = useState('');
 
@@ -64,39 +65,8 @@ function PatientHome() {
     };
   }, []);
 
-  // Cada vez que cambia la especialidad: traer sus médicos
-  useEffect(() => {
-    if (!specialtyId) return;
-
-    let ignore = false;
-
-    const load = async () => {
-      setLoadingDoctors(true);
-      const { data, error } = await getDoctors({ specialtyId, pageSize: 100 });
-
-      if (ignore) return;
-
-      setLoadingDoctors(false);
-
-      if (error) {
-        setLoadError(error.message);
-
-        return;
-      }
-
-      setDoctors(data.data);
-    };
-
-    load();
-
-    return () => {
-      ignore = true;
-    };
-  }, [specialtyId]);
-
   const handleSpecialtyChange = (e) => {
     setSpecialtyId(e.target.value);
-    setDoctors([]);
     setDoctorId('');
     setSlots([]);
     setSelectedSlot(null);
@@ -304,11 +274,7 @@ function PatientHome() {
           </div>
         </div>
 
-        {loadError && (
-          <p className="mt-4 rounded-lg bg-med-danger-bg px-3 py-2 text-xs text-med-danger-text">
-            {loadError}
-          </p>
-        )}
+        <ErrorAlert className="mt-4">{loadError || doctorsError}</ErrorAlert>
       </Card>
 
       {/* 2. Datos del médico elegido (solo si eligió uno) */}
