@@ -1,96 +1,39 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../../shared/components/Card';
 import Button from '../../shared/components/Button';
 import TablePagination from '../../shared/components/TablePagination';
 import ConfirmDialog from '../../shared/components/ConfirmDialog';
-import {
-  getSpecialties,
-  deleteSpecialty,
-} from '../services/specialtiesService';
+import useDebouncedSearch from '../../shared/hooks/useDebouncedSearch';
+import useConfirmDelete from '../../shared/hooks/useConfirmDelete';
+import useSpecialties from '../hooks/useSpecialties';
+import { deleteSpecialty } from '../services/specialtiesService';
 
 const PAGE_SIZE = 10;
-const MIN_SEARCH_LENGTH = 3;
 
 function SpecialtiesPage() {
   const navigate = useNavigate();
-
-  const [specialties, setSpecialties] = useState([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { searchTerm, setSearchTerm, search } = useDebouncedSearch();
 
-  const [toDelete, setToDelete] = useState(null);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState('');
+  const { specialties, total, loading, error, reload } = useSpecialties({
+    page,
+    pageSize: PAGE_SIZE,
+    name: search,
+  });
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      const term = searchTerm.trim();
-
-      setSearch(term.length >= MIN_SEARCH_LENGTH ? term : '');
-      setPage(1);
-    }, 400);
-
-    return () => clearTimeout(timeout);
-  }, [searchTerm]);
-
-  const loadSpecialties = useCallback(async () => {
-    setLoading(true);
-    setError('');
-
-    const { data, error } = await getSpecialties({
-      pageIndex: page,
-      pageSize: PAGE_SIZE,
-      name: search,
-    });
-
-    if (error) {
-      setError(error.message);
-      setSpecialties([]);
-      setTotal(0);
-    } else {
-      setSpecialties(data.data);
-      setTotal(data.total);
-    }
-
-    setLoading(false);
-  }, [page, search]);
-
-  useEffect(() => {
-    loadSpecialties();
-  }, [loadSpecialties]);
-
-  const closeDeleteDialog = () => {
-    setToDelete(null);
-    setDeleteError('');
-  };
-
-  const handleDelete = async () => {
-    setDeleting(true);
-    setDeleteError('');
-
-    const { error } = await deleteSpecialty(toDelete.id);
-
-    setDeleting(false);
-
-    if (error) {
-      setDeleteError(error.message);
-
-      return;
-    }
-
-    closeDeleteDialog();
-
-    if (specialties.length === 1 && page > 1) {
-      setPage(page - 1);
-    } else {
-      loadSpecialties();
-    }
-  };
+  const {
+    toDelete,
+    askDelete,
+    cancelDelete,
+    confirmDelete,
+    deleting,
+    deleteError,
+  } = useConfirmDelete(deleteSpecialty, () => {
+    // Si se borró el único registro de la página, volver a la anterior
+    if (specialties.length === 1 && page > 1) setPage(page - 1);
+    else reload();
+  });
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -128,7 +71,10 @@ function SpecialtiesPage() {
               placeholder="Buscar especialidad (mín. 3 letras)..."
               aria-label="Buscar especialidad por nombre"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
               className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-med-border rounded-lg text-med-text-main placeholder-med-text-muted focus:outline-none focus:ring-1 focus:ring-med-primary-600"
             />
           </div>
@@ -176,7 +122,7 @@ function SpecialtiesPage() {
                     <p className="text-med-danger-text">{error}</p>
                     <button
                       type="button"
-                      onClick={loadSpecialties}
+                      onClick={reload}
                       className="mt-2 text-xs font-semibold text-med-primary-700 underline"
                     >
                       Reintentar
@@ -220,51 +166,54 @@ function SpecialtiesPage() {
                       {spec.description}
                     </td>
 
+                    {/* Acciones: Editar y Eliminar */}
                     <td className="px-6 py-4 text-right">
-                      <button
-                        type="button"
-                        title="Editar especialidad"
-                        aria-label={`Editar ${spec.name}`}
-                        className="p-1.5 rounded-lg hover:bg-med-primary-50 text-med-primary-700 transition"
-                        onClick={() =>
-                          navigate(`/admin/specialties/${spec.id}/edit`)
-                        }
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          title="Editar especialidad"
+                          aria-label={`Editar ${spec.name}`}
+                          className="p-1.5 rounded-lg hover:bg-med-primary-50 text-med-primary-700 transition"
+                          onClick={() =>
+                            navigate(`/admin/specialties/${spec.id}/edit`)
+                          }
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                          />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        title="Eliminar especialidad"
-                        aria-label={`Eliminar ${spec.name}`}
-                        className="p-1.5 rounded-lg hover:bg-red-50 text-med-danger-text transition"
-                        onClick={() => setToDelete(spec)}
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                            />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          title="Eliminar especialidad"
+                          aria-label={`Eliminar ${spec.name}`}
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-med-danger-text transition"
+                          onClick={() => askDelete(spec)}
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
-                      </button>
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -288,8 +237,8 @@ function SpecialtiesPage() {
         confirmText="Eliminar"
         loading={deleting}
         error={deleteError}
-        onConfirm={handleDelete}
-        onCancel={closeDeleteDialog}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
       />
     </div>
   );

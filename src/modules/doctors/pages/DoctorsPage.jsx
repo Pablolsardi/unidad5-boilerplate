@@ -1,96 +1,43 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Card from '../../shared/components/Card';
 import Button from '../../shared/components/Button';
 import TablePagination from '../../shared/components/TablePagination';
 import ConfirmDialog from '../../shared/components/ConfirmDialog';
-import { getDoctors, deleteDoctor } from '../services/doctorsService';
+import useDebouncedSearch from '../../shared/hooks/useDebouncedSearch';
+import useConfirmDelete from '../../shared/hooks/useConfirmDelete';
+import useDoctors from '../hooks/useDoctors';
+import { deleteDoctor } from '../services/doctorsService';
 
 const PAGE_SIZE = 10;
-const MIN_SEARCH_LENGTH = 3;
 
 function DoctorsPage() {
   const navigate = useNavigate();
   const { state } = useLocation();
-
-  const [doctors, setDoctors] = useState([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+
   // "Ver Detalle" del Tablero llega con el nombre del médico ya buscado
-  const [searchTerm, setSearchTerm] = useState(state?.search ?? '');
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { searchTerm, setSearchTerm, search } = useDebouncedSearch({
+    initial: state?.search ?? '',
+  });
 
-  const [toDelete, setToDelete] = useState(null);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState('');
+  const { doctors, total, loading, error, reload } = useDoctors({
+    page,
+    pageSize: PAGE_SIZE,
+    name: search,
+  });
 
-  // Espera 400 ms después de que el usuario deja de escribir
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      const term = searchTerm.trim();
-
-      setSearch(term.length >= MIN_SEARCH_LENGTH ? term : '');
-      setPage(1);
-    }, 400);
-
-    return () => clearTimeout(timeout);
-  }, [searchTerm]);
-
-  const loadDoctors = useCallback(async () => {
-    setLoading(true);
-    setError('');
-
-    const { data, error } = await getDoctors({
-      pageIndex: page,
-      pageSize: PAGE_SIZE,
-      name: search,
-    });
-
-    if (error) {
-      setError(error.message);
-      setDoctors([]);
-      setTotal(0);
-    } else {
-      setDoctors(data.data);
-      setTotal(data.total);
-    }
-
-    setLoading(false);
-  }, [page, search]);
-
-  useEffect(() => {
-    loadDoctors();
-  }, [loadDoctors]);
-
-  const closeDeleteDialog = () => {
-    setToDelete(null);
-    setDeleteError('');
-  };
-
-  const handleDelete = async () => {
-    setDeleting(true);
-    setDeleteError('');
-
-    const { error } = await deleteDoctor(toDelete.id);
-
-    setDeleting(false);
-
-    if (error) {
-      setDeleteError(error.message);
-
-      return;
-    }
-
-    closeDeleteDialog();
-
-    if (doctors.length === 1 && page > 1) {
-      setPage(page - 1);
-    } else {
-      loadDoctors();
-    }
-  };
+  const {
+    toDelete,
+    askDelete,
+    cancelDelete,
+    confirmDelete,
+    deleting,
+    deleteError,
+  } = useConfirmDelete(deleteDoctor, () => {
+    if (doctors.length === 1 && page > 1) setPage(page - 1);
+    else reload();
+  });
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -130,7 +77,10 @@ function DoctorsPage() {
               placeholder="Buscar doctor por nombre (mín. 3 letras)..."
               aria-label="Buscar doctor por nombre"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
               className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-med-border rounded-lg text-med-text-main placeholder-med-text-muted focus:outline-none focus:ring-1 focus:ring-med-primary-600"
             />
           </div>
@@ -199,7 +149,7 @@ function DoctorsPage() {
                     <p className="text-med-danger-text">{error}</p>
                     <button
                       type="button"
-                      onClick={loadDoctors}
+                      onClick={reload}
                       className="mt-2 text-xs font-semibold text-med-primary-700 underline"
                     >
                       Reintentar
@@ -306,7 +256,7 @@ function DoctorsPage() {
                           title="Eliminar doctor"
                           aria-label={`Eliminar ${doc.name}`}
                           className="p-1.5 rounded-lg hover:bg-red-50 text-med-danger-text transition"
-                          onClick={() => setToDelete(doc)}
+                          onClick={() => askDelete(doc)}
                         >
                           <svg
                             className="w-4 h-4"
@@ -346,8 +296,8 @@ function DoctorsPage() {
         confirmText="Eliminar"
         loading={deleting}
         error={deleteError}
-        onConfirm={handleDelete}
-        onCancel={closeDeleteDialog}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
       />
     </div>
   );

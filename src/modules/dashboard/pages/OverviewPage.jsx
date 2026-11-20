@@ -1,13 +1,11 @@
-import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../../shared/components/Card';
 import Button from '../../shared/components/Button';
-import { getDoctors } from '../../doctors/services/doctorsService';
-import { getSpecialties } from '../../specialties/services/specialtiesService';
-import { getTodayAppointmentsCount } from '../services/dashboardService';
+import useDebouncedSearch from '../../shared/hooks/useDebouncedSearch';
+import useDoctors from '../../doctors/hooks/useDoctors';
+import useOverviewStats from '../hooks/useOverviewStats';
 
 const PREVIEW_SIZE = 5;
-const MIN_SEARCH_LENGTH = 3;
 
 function StatCard({ label, value, badge, icon }) {
   return (
@@ -59,74 +57,16 @@ const ICONS = {
 function OverviewPage() {
   const navigate = useNavigate();
 
-  // Métricas: null = cargando / error ('—')
-  const [stats, setStats] = useState({
-    doctors: null,
-    specialties: null,
-    appointmentsToday: null,
-  });
+  const stats = useOverviewStats();
+  const { searchTerm, setSearchTerm, search } = useDebouncedSearch();
 
-  const [doctors, setDoctors] = useState([]);
-  const [doctorsTotal, setDoctorsTotal] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  // Las 3 tarjetas se cargan en paralelo una sola vez
-  useEffect(() => {
-    const loadStats = async () => {
-      const [doctorsRes, specialtiesRes, appointmentsRes] = await Promise.all([
-        getDoctors({ pageIndex: 1, pageSize: 1 }),
-        getSpecialties({ pageIndex: 1, pageSize: 1 }),
-        getTodayAppointmentsCount(),
-      ]);
-
-      setStats({
-        doctors: doctorsRes.data?.total ?? null,
-        specialties: specialtiesRes.data?.total ?? null,
-        appointmentsToday: appointmentsRes.data?.total ?? null,
-      });
-    };
-
-    loadStats();
-  }, []);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      const term = searchTerm.trim();
-
-      setSearch(term.length >= MIN_SEARCH_LENGTH ? term : '');
-    }, 400);
-
-    return () => clearTimeout(timeout);
-  }, [searchTerm]);
-
-  useEffect(() => {
-    const loadPreview = async () => {
-      setLoading(true);
-      setError('');
-
-      const { data, error } = await getDoctors({
-        pageIndex: 1,
-        pageSize: PREVIEW_SIZE,
-        name: search,
-      });
-
-      if (error) {
-        setError(error.message);
-        setDoctors([]);
-        setDoctorsTotal(0);
-      } else {
-        setDoctors(data.data);
-        setDoctorsTotal(data.total);
-      }
-
-      setLoading(false);
-    };
-
-    loadPreview();
-  }, [search]);
+  // Vista previa: primeros N médicos (filtrados por nombre si hay búsqueda)
+  const {
+    doctors,
+    total: doctorsTotal,
+    loading,
+    error,
+  } = useDoctors({ page: 1, pageSize: PREVIEW_SIZE, name: search });
 
   const display = (value) => (value === null ? '—' : value);
 

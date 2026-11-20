@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Card from '../../shared/components/Card';
 import SpecialtyForm from '../components/SpecialtyForm';
+import useSpecialty from '../hooks/useSpecialty';
 import {
   createSpecialty,
-  getSpecialties,
   updateSpecialty,
 } from '../services/specialtiesService';
 
@@ -15,29 +14,7 @@ function SpecialtyFormPage() {
   const { id } = useParams();
   const isEdit = Boolean(id);
 
-  const [specialty, setSpecialty] = useState(null);
-  const [loading, setLoading] = useState(isEdit);
-  const [loadError, setLoadError] = useState('');
-
-  useEffect(() => {
-    if (!isEdit) return;
-
-    const load = async () => {
-      const { data, error } = await getSpecialties({ pageSize: 100 });
-
-      const found = data?.data?.find((s) => s.id === id);
-
-      if (error || !found) {
-        setLoadError('No se encontró la especialidad.');
-      } else {
-        setSpecialty(found);
-      }
-
-      setLoading(false);
-    };
-
-    load();
-  }, [id, isEdit]);
+  const { specialty, loading, error } = useSpecialty(id);
 
   const handleSubmit = async (values) => {
     const { error } = isEdit
@@ -57,8 +34,8 @@ function SpecialtyFormPage() {
     );
   }
 
-  if (loadError) {
-    return <p className="text-sm text-med-danger-text">{loadError}</p>;
+  if (error) {
+    return <p className="text-sm text-med-danger-text">{error}</p>;
   }
 
   return (
