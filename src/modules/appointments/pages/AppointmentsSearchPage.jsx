@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Card from '../../shared/components/Card';
 import Button from '../../shared/components/Button';
 import { searchAppointments } from '../services/appointmentsService';
+import StatusBadge from '../../shared/components/StatusBadge';
 
 function AppointmentsSearchPage() {
   const [patientQuery, setPatientQuery] = useState('Johnathan Doe');
@@ -22,7 +23,6 @@ function AppointmentsSearchPage() {
         setError(error.message);
       } else {
         setAppointments(data.data);
-        console.log('Turnos del back:', data);
       }
 
       setLoading(false);
@@ -30,87 +30,6 @@ function AppointmentsSearchPage() {
 
     load();
   }, []);
-
-  const appointmentsData = [
-    {
-      id: 1,
-      date: '24 Oct, 2023',
-      time: '10:30 AM',
-      department: 'Cardiology',
-      doctor: 'Dr. Robert Smith',
-      patient: 'Johnathan Doe',
-      dni: '40.123.456',
-      status: 'CONFIRMADO',
-      statusType: 'confirmed',
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="1.75"
-            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-          />
-        </svg>
-      ),
-    },
-    {
-      id: 2,
-      date: '15 Oct, 2023',
-      time: '09:15 AM',
-      department: 'Neurology',
-      doctor: 'Dra. Garcia',
-      patient: 'Johnathan Doe',
-      dni: '40.123.456',
-      status: 'COMPLETADO',
-      statusType: 'completed',
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="1.75"
-            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-          />
-        </svg>
-      ),
-    },
-    {
-      id: 3,
-      date: '05 Oct, 2023',
-      time: '11:00 AM',
-      department: 'General Checkup',
-      doctor: 'Dr. Miller',
-      patient: 'Johnathan Doe',
-      dni: '40.123.456',
-      status: 'CANCELADO',
-      statusType: 'cancelled',
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="1.75"
-            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-          />
-        </svg>
-      ),
-    },
-  ];
 
   return (
     <div className="flex flex-col gap-6">
@@ -279,7 +198,7 @@ function AppointmentsSearchPage() {
           <table className="w-full text-left text-sm">
             <thead className="bg-med-primary-50/70 text-[11px] uppercase tracking-wider text-med-text-sub border-b border-med-border">
               <tr>
-                <th className="px-6 py-3.5">Fecha</th>
+                <th className="px-6 py-3.5">Fecha y hora</th>
                 <th className="px-6 py-3.5">Departamento</th>
                 <th className="px-6 py-3.5">Paciente</th>
                 <th className="px-6 py-3.5 text-center">Estado</th>
@@ -287,33 +206,62 @@ function AppointmentsSearchPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-med-border-subtle">
-              {appointmentsData.map((item) => (
+              {loading && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-6 py-8 text-center text-med-text-muted"
+                  >
+                    Cargando turnos...
+                  </td>
+                </tr>
+              )}
+
+              {!loading && error && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-6 py-8 text-center text-med-danger-text"
+                  >
+                    {error}
+                  </td>
+                </tr>
+              )}
+
+              {!loading && !error && appointments.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-6 py-8 text-center text-med-text-muted"
+                  >
+                    No se encontraron turnos.
+                  </td>
+                </tr>
+              )}
+              {appointments.map((item) => (
                 <tr
-                  key={item.id}
+                  key={item.appointmentsId}
                   className="hover:bg-gray-50/70 transition-colors"
                 >
                   {/* Fecha y Hora */}
                   <td className="px-6 py-4">
                     <p className="font-bold text-med-primary-900 text-sm">
-                      {item.date}
+                      {item.date.split('-').reverse().join('/')}
                     </p>
                     <p className="text-xs text-med-text-muted mt-0.5">
-                      {item.time}
+                      {item.startTime.slice(0, 5)} - {item.endTime.slice(0, 5)}
                     </p>
                   </td>
 
                   {/* Departamento / Especialidad con Icono */}
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-med-primary-100 text-med-primary-700 flex items-center justify-center shrink-0">
-                        {item.icon}
-                      </div>
                       <div>
                         <p className="font-semibold text-med-primary-900">
-                          {item.department}
+                          {item.doctor.specialty?.name ?? 'Sin especialidad'}
                         </p>
                         <p className="text-xs text-med-text-muted">
-                          {item.doctor}
+                          {item.doctor.name}
                         </p>
                       </div>
                     </div>
@@ -322,40 +270,23 @@ function AppointmentsSearchPage() {
                   {/* Paciente y DNI */}
                   <td className="px-6 py-4">
                     <p className="font-semibold text-med-text-main">
-                      {item.patient}
+                      {item.patient.fullName ?? 'Paciente'}
                     </p>
                     <p className="text-xs text-med-text-muted mt-0.5">
-                      DNI: {item.dni}
+                      DNI: {item.patient.dni}
                     </p>
                   </td>
 
                   {/* Estado (CONFIRMADO, COMPLETADO, CANCELADO) */}
                   <td className="px-6 py-4 text-center">
-                    {item.statusType === 'confirmed' && (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-med-active-bg text-med-active-text">
-                        <span className="w-1.5 h-1.5 rounded-full bg-med-active-text" />
-                        {item.status}
-                      </span>
-                    )}
-                    {item.statusType === 'completed' && (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                        {item.status}
-                      </span>
-                    )}
-                    {item.statusType === 'cancelled' && (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-med-danger-bg text-med-danger-text">
-                        <span className="w-1.5 h-1.5 rounded-full bg-med-danger-text" />
-                        {item.status}
-                      </span>
-                    )}
+                    <StatusBadge status={item.appointmentsStatus} />
                   </td>
 
                   {/* Acciones */}
                   <td className="px-6 py-4 text-right">
                     <button
                       onClick={() =>
-                        alert(`Ver detalle de cita de ${item.patient}`)
+                        alert(`Ver detalle de cita de ${item.patient.dni}`)
                       }
                       className="text-xs font-semibold text-med-primary-700 hover:text-med-primary-900 transition hover:underline"
                     >
