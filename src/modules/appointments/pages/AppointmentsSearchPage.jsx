@@ -5,6 +5,9 @@ import { searchAppointments } from '../services/appointmentsService';
 import StatusBadge from '../../shared/components/StatusBadge';
 import { getSpecialties } from '../../specialties/services/specialtiesService';
 import { getDoctors } from '../../doctors/services/doctorsService';
+import TablePagination from '../../shared/components/TablePagination';
+
+const PAGE_SIZE = 10;
 
 function AppointmentsSearchPage() {
   const [patientQuery, setPatientQuery] = useState('');
@@ -17,25 +20,32 @@ function AppointmentsSearchPage() {
   const [specialties, setSpecialties] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [appliedFilters, setAppliedFilters] = useState({});
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setError('');
 
-      const { data, error } = await searchAppointments(appliedFilters);
+      const { data, error } = await searchAppointments({
+        ...appliedFilters,
+        pageIndex: page,
+        pageSize: PAGE_SIZE,
+      });
 
       if (error) {
         setError(error.message);
       } else {
         setAppointments(data.data);
+        setTotal(data.total);
       }
 
       setLoading(false);
     };
 
     load();
-  }, [appliedFilters]);
+  }, [appliedFilters, page]);
 
   useEffect(() => {
     const loadOptions = async () => {
@@ -55,6 +65,8 @@ function AppointmentsSearchPage() {
     ? doctors.filter((d) => d.specialty?.id === specialtyFilter)
     : doctors;
 
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
   return (
     <div className="flex flex-col gap-6">
       {/* Título de la página */}
@@ -73,22 +85,6 @@ function AppointmentsSearchPage() {
           <h2 className="text-base font-bold text-med-primary-900">
             Criterios de Búsqueda
           </h2>
-          <div className="flex items-center gap-1.5 text-xs text-med-text-muted">
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            <span>Última actualización: hace un momento</span>
-          </div>
         </div>
 
         {/* Inputs de Filtros */}
@@ -119,7 +115,7 @@ function AppointmentsSearchPage() {
                 inputMode="numeric"
                 value={patientQuery}
                 onChange={(e) => setPatientQuery(e.target.value)}
-                placeholder="99.999.999"
+                placeholder="40123456"
                 className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-med-border rounded-lg text-med-text-main placeholder-med-text-muted focus:outline-none focus:ring-1 focus:ring-med-primary-600"
               />
             </div>
@@ -182,14 +178,15 @@ function AppointmentsSearchPage() {
           {/* Botón Aplicar Filtros */}
           <div>
             <Button
-              onClick={() =>
+              onClick={() => {
+                setPage(1);
                 setAppliedFilters({
-                  dni: patientQuery,
+                  dni: patientQuery.replaceAll('.', ''),
                   specialtyId: specialtyFilter,
                   doctorId: doctorFilter,
                   date: dateFilter,
-                })
-              }
+                });
+              }}
               className="w-full flex items-center justify-center gap-2 bg-med-primary-900 hover:bg-med-primary-800 text-white font-medium py-2 rounded-lg"
             >
               <svg
@@ -211,17 +208,49 @@ function AppointmentsSearchPage() {
         </div>
 
         {/* Chips de Filtros Activos */}
-        <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-med-border-subtle">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-sky-100/70 text-sky-800">
-            Paciente: Johnathan Doe
-          </span>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-sky-100/70 text-sky-800">
-            DNI: 40.123.456
-          </span>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-            Filtro Activo: Próximos 7 Días
-          </span>
-        </div>
+        {Object.values(appliedFilters).some(Boolean) && (
+          <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-med-border-subtle">
+            {appliedFilters.dni && (
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-sky-100/70 text-sky-800">
+                DNI: {appliedFilters.dni}
+              </span>
+            )}
+            {appliedFilters.specialtyId && (
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-sky-100/70 text-sky-800">
+                Especialidad:{' '}
+                {
+                  specialties.find((s) => s.id === appliedFilters.specialtyId)
+                    ?.name
+                }
+              </span>
+            )}
+            {appliedFilters.doctorId && (
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-sky-100/70 text-sky-800">
+                Médico:{' '}
+                {doctors.find((d) => d.id === appliedFilters.doctorId)?.name}
+              </span>
+            )}
+            {appliedFilters.date && (
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-sky-100/70 text-sky-800">
+                Fecha: {appliedFilters.date.split('-').reverse().join('/')}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setPatientQuery('');
+                setSpecialtyFilter('');
+                setDoctorFilter('');
+                setDateFilter('');
+                setPage(1);
+                setAppliedFilters({});
+              }}
+              className="text-xs font-semibold text-med-primary-700 hover:underline"
+            >
+              Limpiar filtros
+            </button>
+          </div>
+        )}
       </Card>
 
       {/* Card Inferior: Registros de Citas */}
@@ -341,17 +370,13 @@ function AppointmentsSearchPage() {
         </div>
 
         {/* Paginador inferior normalizado */}
-        <div className="p-4 bg-med-primary-50/50 border-t border-med-border flex items-center justify-between text-xs text-med-text-muted">
-          <span>Mostrando 3 de 42 registros</span>
-          <div className="flex items-center gap-1">
-            <button className="px-2.5 py-1 border border-med-border rounded bg-white text-med-text-sub hover:bg-gray-50">
-              ‹
-            </button>
-            <button className="px-2.5 py-1 border border-med-border rounded bg-white text-med-text-sub hover:bg-gray-50">
-              ›
-            </button>
-          </div>
-        </div>
+        <TablePagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={total}
+          pageSize={PAGE_SIZE}
+          onPageChange={setPage}
+        />
       </Card>
     </div>
   );
