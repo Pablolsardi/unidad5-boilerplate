@@ -238,7 +238,9 @@ function DoctorsPage() {
                           aria-label={`Disponibilidad de ${doc.name}`}
                           className="p-1.5 rounded-lg hover:bg-med-primary-50 text-med-primary-600 hover:text-med-primary-900 transition"
                           onClick={() =>
-                            navigate(`/admin/doctors/${doc.id}/availability`)
+                            navigate(`/admin/doctors/${doc.id}/availability`, {
+                              state: { doctor: doc },
+                            })
                           }
                         >
                           <svg
