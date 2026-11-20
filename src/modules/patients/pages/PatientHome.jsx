@@ -20,16 +20,16 @@ import {
   parseDate,
   startOfWeek,
 } from '../helpers/dateHelpers';
-import {
-  createAppointment,
-  getSessionDni,
-} from '../services/appointmentsService';
+import { createAppointment } from '../services/appointmentsService';
+import useAuth from '../../auth/hook/useAuth';
 
 // Errores que significan "ese horario ya no sirve": hay que recargar los horarios
 const SLOT_ERRORS = ['APPOINTMENT_CONFLICT', 'APPOINTMENT_PAST_DATE'];
 
 function PatientHome() {
   const navigate = useNavigate();
+
+  const { dni } = useAuth();
 
   const [specialties, setSpecialties] = useState([]);
   const [specialtyId, setSpecialtyId] = useState('');
@@ -196,6 +196,7 @@ function PatientHome() {
       doctorId,
       slotId: selectedSlot.id,
       reason,
+      dni,
     });
 
     if (error) {
@@ -583,7 +584,7 @@ function PatientHome() {
                 <strong>Motivo:</strong> {confirmed.reason}
               </p>
               <p>
-                <strong>DNI del paciente:</strong> {getSessionDni()}
+                <strong>DNI del paciente:</strong> {dni}
               </p>
             </div>
 

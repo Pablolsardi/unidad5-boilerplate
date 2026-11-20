@@ -3,24 +3,22 @@ import { apiRequest } from '../../shared/helpers/apiRequest';
 
 const BASE_URL = 'api/appointments';
 
-function getSessionDni() {
-  return Number(localStorage.getItem('dni'));
-}
-
-function getMyAppointments() {
+// El servicio no sabe de dónde sale el DNI (sesión, localStorage, etc.):
+// lo recibe como parámetro desde quien lo llama (useAuth).
+function getMyAppointments(dni) {
   return apiRequest(() =>
     instance.get(`${BASE_URL}/patient`, {
-      params: { dni: getSessionDni() },
+      params: { dni: Number(dni) },
     })
   );
 }
 
-function createAppointment({ doctorId, slotId, reason }) {
+function createAppointment({ doctorId, slotId, reason, dni }) {
   return apiRequest(() =>
     instance.post(BASE_URL, {
       doctorId,
       availabilitySlotId: slotId,
-      patient: { dni: getSessionDni() },
+      patient: { dni: Number(dni) },
       reason: reason.trim(),
     })
   );
@@ -30,9 +28,4 @@ function cancelAppointment(id) {
   return apiRequest(() => instance.delete(`${BASE_URL}/${id}`));
 }
 
-export {
-  getSessionDni,
-  getMyAppointments,
-  createAppointment,
-  cancelAppointment,
-};
+export { getMyAppointments, createAppointment, cancelAppointment };

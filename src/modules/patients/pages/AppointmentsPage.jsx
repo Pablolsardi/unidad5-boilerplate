@@ -5,6 +5,7 @@ import Button from '../../shared/components/Button';
 import StatusBadge from '../../shared/components/StatusBadge';
 import { formatLongDate, isPastSlot } from '../helpers/dateHelpers';
 import ConfirmDialog from '../../shared/components/ConfirmDialog';
+import useAuth from '../../auth/hook/useAuth';
 import {
   cancelAppointment,
   getMyAppointments,
@@ -12,7 +13,7 @@ import {
 
 function AppointmentsPage() {
   const navigate = useNavigate();
-
+  const { dni } = useAuth();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -28,7 +29,7 @@ function AppointmentsPage() {
     let ignore = false;
 
     const load = async () => {
-      const { data, error } = await getMyAppointments();
+      const { data, error } = await getMyAppointments(dni);
 
       if (ignore) return;
 
@@ -53,7 +54,7 @@ function AppointmentsPage() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [dni]);
 
   const openCancelDialog = (appt) => {
     setToCancel(appt);
