@@ -124,11 +124,13 @@ function DoctorAvailabilityPage() {
   }, []);
 
   const loadRules = useCallback(async () => {
+    // Sin profesional elegido no hay nada que cargar
     if (!id) {
       setLoading(false);
 
       return;
     }
+
     setLoading(true);
     setLoadError('');
 
@@ -237,6 +239,11 @@ function DoctorAvailabilityPage() {
               {id && !doctor && (
                 <option value={id}>Cargando profesionales...</option>
               )}
+              {doctors.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
             </select>
 
             {doctor && (
@@ -304,6 +311,18 @@ function DoctorAvailabilityPage() {
             <p className="p-8 text-center text-sm text-med-text-muted">
               Seleccione un profesional para ver y configurar sus horarios.
             </p>
+          )}
+
+          {id && !loading && loadError && (
+            <div className="p-8 text-center">
+              <p className="text-sm text-med-danger-text">{loadError}</p>
+              <Link
+                to={LIST_PATH}
+                className="mt-2 inline-block text-xs font-semibold text-med-primary-700 underline"
+              >
+                Volver a Doctores
+              </Link>
+            </div>
           )}
 
           {id && !loading && !loadError && (

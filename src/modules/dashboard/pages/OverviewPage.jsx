@@ -286,8 +286,11 @@ function OverviewPage() {
                     <td className="px-6 py-4 text-right">
                       <button
                         type="button"
-                        onClick={() => navigate('/admin/doctors')}
-                        className="text-xs font-semibold text-med-primary-700 hover:text-med-primary-900"
+                        onClick={() =>
+                          navigate('/admin/doctors', {
+                            state: { search: doc.name },
+                          })
+                        }
                       >
                         Ver Detalle
                       </button>
