@@ -1,12 +1,35 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card from '../../shared/components/Card';
 import Button from '../../shared/components/Button';
+import { searchAppointments } from '../services/appointmentsService';
 
 function AppointmentsSearchPage() {
   const [patientQuery, setPatientQuery] = useState('Johnathan Doe');
   const [specialtyFilter, setSpecialtyFilter] = useState('Todas');
   const [doctorFilter, setDoctorFilter] = useState('Todos');
   const [dateFilter, setDateFilter] = useState('2023-10-24');
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+
+      const { data, error } = await searchAppointments();
+
+      if (error) {
+        setError(error.message);
+      } else {
+        setAppointments(data.data);
+        console.log('Turnos del back:', data);
+      }
+
+      setLoading(false);
+    };
+
+    load();
+  }, []);
 
   const appointmentsData = [
     {
