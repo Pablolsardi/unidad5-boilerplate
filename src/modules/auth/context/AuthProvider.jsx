@@ -48,6 +48,7 @@ function AuthProvider({ children }) {
 
     setAuthSession(data.token, data.role);
     localStorage.setItem('dni', dni);
+    localStorage.setItem('email', email);
 
     return { error: null };
   };
