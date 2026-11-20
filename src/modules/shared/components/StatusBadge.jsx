@@ -19,6 +19,7 @@ function StatusBadge({ status }) {
     label: status,
     className: 'bg-gray-100 text-gray-700',
   };
+
   return (
     <span
       className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${config.className}`}
