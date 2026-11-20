@@ -33,6 +33,12 @@ function getDoctorAvailabilities(id) {
   return apiRequest(() => instance.get(`${BASE_URL}/${id}/availabilities`));
 }
 
+function getDoctorSlots(id, date) {
+  const params = date ? { date } : {};
+
+  return apiRequest(() => instance.get(`${BASE_URL}/${id}/slots`, { params }));
+}
+
 export {
   getDoctors,
   createDoctor,
