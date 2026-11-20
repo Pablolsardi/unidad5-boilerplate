@@ -26,9 +26,7 @@ instance.interceptors.response.use(
     const esLogin = url?.includes('login');
 
     if (status === 401 && !esLogin) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('role');
-      localStorage.removeItem('dni');
+      localStorage.clear();
 
       if (window.location.pathname.includes('admin')) {
         window.location.href = '/admin/login';

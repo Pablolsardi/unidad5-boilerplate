@@ -54,7 +54,7 @@ function AuthProvider({ children }) {
     localStorage.setItem('dni', dni);
     localStorage.setItem('email', email);
 
-    return { error: null };
+    return { error: null }; 
   };
 
   return (
