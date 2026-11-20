@@ -3,11 +3,9 @@ import { apiRequest } from '../../shared/helpers/apiRequest';
 
 const BASE_URL = 'api/appointments';
 
-
 function getSessionDni() {
   return Number(localStorage.getItem('dni'));
 }
-
 
 function getMyAppointments() {
   return apiRequest(() =>
@@ -16,7 +14,6 @@ function getMyAppointments() {
     })
   );
 }
-
 
 function createAppointment({ doctorId, slotId, reason }) {
   return apiRequest(() =>
@@ -28,7 +25,6 @@ function createAppointment({ doctorId, slotId, reason }) {
     })
   );
 }
-
 
 function cancelAppointment(id) {
   return apiRequest(() => instance.delete(`${BASE_URL}/${id}`));

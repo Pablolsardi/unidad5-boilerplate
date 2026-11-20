@@ -45,4 +45,5 @@ export {
   updateDoctor,
   deleteDoctor,
   getDoctorAvailabilities,
+  getDoctorSlots,
 };
