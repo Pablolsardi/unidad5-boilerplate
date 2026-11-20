@@ -17,15 +17,17 @@ function AdminLoginPage() {
   const { singinAdmin } = useAuth();
 
   const onValid = async (formData) => {
-    try {
-      await singinAdmin(formData.username, formData.password);
-      navigate('/admin/home');
-    } catch (error) {
-      setErrorMessage(
-        error?.response?.data?.message ??
-          'Error al conectar con el servicio administrativo'
-      );
+    setErrorMessage('');
+
+    const { error } = await singinAdmin(formData.username, formData.password);
+
+    if (error) {
+      setErrorMessage(error.message);
+
+      return;
     }
+
+    navigate('/admin/home');
   };
 
   return (
