@@ -15,10 +15,12 @@ function DoctorForm({
   const [loadingSpecialties, setLoadingSpecialties] = useState(true);
   const [specialtiesError, setSpecialtiesError] = useState('');
 
+  const initialSpecialtyId = defaultValues?.specialtyId;
   const {
     register,
     handleSubmit,
     setError,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm({
     defaultValues: {
@@ -44,6 +46,12 @@ function DoctorForm({
 
     load();
   }, []);
+
+  useEffect(() => {
+    if (specialties.length > 0 && initialSpecialtyId) {
+      setValue('specialtyId', initialSpecialtyId);
+    }
+  }, [specialties, initialSpecialtyId, setValue]);
 
   const submit = async (values) => {
     setServerError('');

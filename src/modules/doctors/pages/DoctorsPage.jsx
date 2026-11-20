@@ -240,9 +240,32 @@ function DoctorsPage() {
                       </span>
                     </td>
 
-                    {/* Acciones: Disponibilidad y Eliminar */}
+                    {/* Acciones: Disponibilidad, Editar y Eliminar */}
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          title="Editar doctor"
+                          aria-label={`Editar ${doc.name}`}
+                          className="p-1.5 rounded-lg hover:bg-med-primary-50 text-med-primary-700 transition"
+                          onClick={() =>
+                            navigate(`/admin/doctors/${doc.id}/edit`)
+                          }
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                            />
+                          </svg>
+                        </button>
                         <button
                           type="button"
                           title="Disponibilidad horaria"
