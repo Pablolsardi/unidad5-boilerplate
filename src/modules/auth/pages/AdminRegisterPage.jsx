@@ -34,8 +34,8 @@ function AdminRegisterPage() {
 
       {successEmail && (
         <p className="rounded-lg bg-med-primary-50 px-4 py-3 text-sm text-med-primary-700">
-          Se registró el administrador <strong>{successEmail}</strong>. Ya
-          puede ingresar con su email y contraseña.
+          Se registró el administrador <strong>{successEmail}</strong>. Ya puede
+          ingresar con su email y contraseña.
         </p>
       )}
 
