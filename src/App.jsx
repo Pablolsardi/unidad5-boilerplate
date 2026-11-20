@@ -104,6 +104,10 @@ const routes = [
         element: <DoctorFormPage />,
       },
       {
+        path: 'doctors/availability',
+        element: <DoctorAvailabilityPage />,
+      },
+      {
         path: 'doctors/:id/availability',
         element: <DoctorAvailabilityPage />,
       },

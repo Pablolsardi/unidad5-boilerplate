@@ -124,6 +124,11 @@ function DoctorAvailabilityPage() {
   }, []);
 
   const loadRules = useCallback(async () => {
+    if (!id) {
+      setLoading(false);
+
+      return;
+    }
     setLoading(true);
     setLoadError('');
 
@@ -220,7 +225,7 @@ function DoctorAvailabilityPage() {
             </label>
             <select
               id="availability-doctor"
-              value={id}
+              value={id ?? ''}
               onChange={(e) =>
                 navigate(`/admin/doctors/${e.target.value}/availability`, {
                   replace: true,
@@ -228,12 +233,10 @@ function DoctorAvailabilityPage() {
               }
               className="w-full border border-med-border rounded-lg px-3 py-2 text-sm bg-white text-med-text-main focus:outline-none focus:ring-2 focus:ring-med-primary-600"
             >
-              {!doctor && <option value={id}>Cargando profesionales...</option>}
-              {doctors.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
+              {!id && <option value="">Seleccione un profesional</option>}
+              {id && !doctor && (
+                <option value={id}>Cargando profesionales...</option>
+              )}
             </select>
 
             {doctor && (
@@ -291,25 +294,19 @@ function DoctorAvailabilityPage() {
             </span>
           </div>
 
-          {loading && (
+          {id && loading && (
             <p className="p-8 text-center text-sm text-med-text-muted">
               Cargando disponibilidad...
             </p>
           )}
 
-          {!loading && loadError && (
-            <div className="p-8 text-center">
-              <p className="text-sm text-med-danger-text">{loadError}</p>
-              <Link
-                to={LIST_PATH}
-                className="mt-2 inline-block text-xs font-semibold text-med-primary-700 underline"
-              >
-                Volver a Doctores
-              </Link>
-            </div>
+          {!id && (
+            <p className="p-8 text-center text-sm text-med-text-muted">
+              Seleccione un profesional para ver y configurar sus horarios.
+            </p>
           )}
 
-          {!loading && !loadError && (
+          {id && !loading && !loadError && (
             <form onSubmit={handleSubmit(submit)} noValidate>
               {(success || formError) && (
                 <div className="px-5 pt-5">
