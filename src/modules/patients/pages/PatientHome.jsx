@@ -1,90 +1,240 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import Card from '../../shared/components/Card';
 import Button from '../../shared/components/Button';
+import { getSpecialties } from '../../specialties/services/specialtiesService';
+import {
+  getDoctors,
+  getDoctorSlots,
+} from '../../doctors/services/doctorsService';
+import {
+  addDays,
+  formatLongDate,
+  formatWeekRange,
+  getDayName,
+  getMonthName,
+  getWeekDates,
+  groupSlotsByDate,
+  isPastSlot,
+  parseDate,
+  startOfWeek,
+} from '../helpers/dateHelpers';
+import {
+  createAppointment,
+  getSessionDni,
+} from '../services/appointmentsService';
+
+// Errores que significan "ese horario ya no sirve": hay que recargar los horarios
+const SLOT_ERRORS = ['APPOINTMENT_CONFLICT', 'APPOINTMENT_PAST_DATE'];
 
 function PatientHome() {
   const navigate = useNavigate();
 
-  // Estados de selección de filtros
-  const [selectedSpecialty, setSelectedSpecialty] = useState('Cardiología');
-  const [selectedDoctorId, setSelectedDoctorId] = useState('doc-1');
+  const [specialties, setSpecialties] = useState([]);
+  const [specialtyId, setSpecialtyId] = useState('');
 
-  // Médicos disponibles
-  const doctorsList = [
-    {
-      id: 'doc-1',
-      name: 'Dr. Alejandro Martínez',
-      specialty: 'Cardiología',
-      specialtyDetail: 'Cardiología Intervencionista',
-      clinic: 'Clínica San Rafael • Sede Central Consultorio 402',
-      badge: 'Verificado',
-      avatar: '👨‍⚕️',
-    },
-    {
-      id: 'doc-2',
-      name: 'Dra. Elena Martínez',
-      specialty: 'Pediatría',
-      specialtyDetail: 'Pediatría Avanzada',
-      clinic: 'Clínica San Rafael • Consultorio 104',
-      badge: 'Verificado',
-      avatar: '👩‍⚕️',
-    },
-    {
-      id: 'doc-3',
-      name: 'Dr. Marcos Torres',
-      specialty: 'Neurología',
-      specialtyDetail: 'Neurocirugía Clínica',
-      clinic: 'Clínica San Rafael • Consultorio 202',
-      badge: 'Verificado',
-      avatar: '👨‍⚕️',
-    },
-  ];
+  const [doctors, setDoctors] = useState([]);
+  const [doctorId, setDoctorId] = useState('');
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
 
-  const currentDoctor =
-    doctorsList.find((doc) => doc.id === selectedDoctorId) || doctorsList[0];
+  const [loadError, setLoadError] = useState('');
 
-  // Días de la semana disponible
-  const weekDays = [
-    { dayName: 'LUN', dateNumber: '22', fullDate: 'Lunes 22 de Mayo de 2024' },
-    { dayName: 'MAR', dateNumber: '23', fullDate: 'Martes 23 de Mayo de 2024' },
-    {
-      dayName: 'MIE',
-      dateNumber: '24',
-      fullDate: 'Miércoles 24 de Mayo de 2024',
-    },
-    { dayName: 'JUE', dateNumber: '25', fullDate: 'Jueves 25 de Mayo de 2024' },
-    {
-      dayName: 'VIE',
-      dateNumber: '26',
-      fullDate: 'Viernes 26 de Mayo de 2024',
-    },
-  ];
+  useEffect(() => {
+    let ignore = false;
 
-  // Horarios por día
-  const slotsByDay = {
-    22: ['08:00', '08:30', '09:00', '09:30', '10:00', '11:30'],
-    23: ['08:00', '09:00', '10:30', '11:00', '12:30'],
-    24: ['08:30', '09:30', '11:00', '11:30'],
-    25: [], // Sin turnos disponibles
-    26: ['08:00', '08:30', '09:00', '14:00', '14:30'],
+    const load = async () => {
+      const { data, error } = await getSpecialties({ pageSize: 100 });
+
+      if (ignore) return;
+
+      if (error) {
+        setLoadError(error.message);
+
+        return;
+      }
+
+      setSpecialties(data.data);
+    };
+
+    load();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  // Cada vez que cambia la especialidad: traer sus médicos
+  useEffect(() => {
+    if (!specialtyId) return;
+
+    let ignore = false;
+
+    const load = async () => {
+      setLoadingDoctors(true);
+      const { data, error } = await getDoctors({ specialtyId, pageSize: 100 });
+
+      if (ignore) return;
+
+      setLoadingDoctors(false);
+
+      if (error) {
+        setLoadError(error.message);
+
+        return;
+      }
+
+      setDoctors(data.data);
+    };
+
+    load();
+
+    return () => {
+      ignore = true;
+    };
+  }, [specialtyId]);
+
+  const handleSpecialtyChange = (e) => {
+    setSpecialtyId(e.target.value);
+    setDoctors([]);
+    setDoctorId('');
+    setSlots([]);
+    setSelectedSlot(null);
+    setLoadError('');
+    setSubmitError('');
   };
 
-  // Día y slot horario seleccionado
-  const [selectedDayNumber, setSelectedDayNumber] = useState('22');
-  const [selectedSlot, setSelectedSlot] = useState('09:30');
-  const [confirmedModal, setConfirmedModal] = useState(false);
+  // El médico elegido (undefined si todavía no eligió ninguno)
+  const currentDoctor = doctors.find((doc) => doc.id === doctorId);
 
-  const selectedDayObj =
-    weekDays.find((d) => d.dateNumber === selectedDayNumber) || weekDays[0];
+  // Horarios libres del médico elegido (vienen de la API)
+  const [slots, setSlots] = useState([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [reloadSlots, setReloadSlots] = useState(0);
+  const [submitError, setSubmitError] = useState('');
+  const [confirmed, setConfirmed] = useState(null);
 
-  const handleSelectSlot = (dayNum, slot) => {
-    setSelectedDayNumber(dayNum);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm({ defaultValues: { reason: '' } });
+
+  // cargar los horarios libres al cambiar de medico
+  useEffect(() => {
+    if (!doctorId) return;
+
+    let ignore = false;
+
+    const load = async () => {
+      setLoadingSlots(true);
+      const { data, error } = await getDoctorSlots(doctorId);
+
+      if (ignore) return;
+
+      setLoadingSlots(false);
+
+      if (error) {
+        setLoadError(error.message);
+
+        return;
+      }
+
+      const futureSlots = data.filter((slot) => !isPastSlot(slot));
+
+      setSlots(futureSlots);
+
+      if (futureSlots.length > 0) {
+        setWeekStart(startOfWeek(parseDate(futureSlots[0].date)));
+        setSelectedDate(futureSlots[0].date);
+      }
+    };
+
+    load();
+
+    return () => {
+      ignore = true;
+    };
+  }, [doctorId, reloadSlots]);
+
+  const slotsByDate = groupSlotsByDate(slots);
+  const weekDates = getWeekDates(weekStart);
+  const canGoBack = weekStart > startOfWeek(new Date());
+
+  const handleDoctorChange = (e) => {
+    setDoctorId(e.target.value);
+    setSlots([]);
+    setSelectedSlot(null);
+    setLoadError('');
+    setSubmitError('');
+  };
+
+  const handleChangeWeek = (direction) => {
+    const newStart = addDays(weekStart, direction * 7);
+    const firstDayWithSlots = getWeekDates(newStart).find(
+      (date) => slotsByDate[date]?.length > 0
+    );
+
+    setWeekStart(newStart);
+    setSelectedDate(firstDayWithSlots ?? '');
+  };
+
+  const handleSelectSlot = (slot) => {
     setSelectedSlot(slot);
+    setSelectedDate(slot.date);
+    setSubmitError('');
   };
 
-  const handleConfirmAppointment = () => {
-    setConfirmedModal(true);
+  const onSubmit = async ({ reason }) => {
+    setSubmitError('');
+
+    const { data, error } = await createAppointment({
+      doctorId,
+      slotId: selectedSlot.id,
+      reason,
+    });
+
+    if (error) {
+      setSubmitError(error.message);
+
+      // Si el horario ya no está disponible, lo deseleccionamos y recargamos
+      if (SLOT_ERRORS.includes(error.code)) {
+        setSelectedSlot(null);
+        setReloadSlots((n) => n + 1);
+      }
+
+      return;
+    }
+
+    // Reserva OK: mostramos el modal y recargamos (ese horario desaparece)
+    setConfirmed(data);
+    setSelectedSlot(null);
+    reset();
+    setReloadSlots((n) => n + 1);
+  };
+
+  // boton de horario
+  const renderSlotButton = (slot) => {
+    const isSelected = selectedSlot?.id === slot.id;
+
+    return (
+      <button
+        key={slot.id}
+        type="button"
+        onClick={() => handleSelectSlot(slot)}
+        className={`w-full py-2 px-2 text-xs font-semibold rounded-lg border transition-all text-center ${
+          isSelected
+            ? 'bg-emerald-400 text-white border-emerald-400 shadow-sm'
+            : 'bg-white border-med-border text-med-primary-900 hover:border-med-primary-600 hover:bg-med-primary-50/50'
+        }`}
+      >
+        {slot.startTime}
+      </button>
+    );
   };
 
   return (
@@ -100,23 +250,24 @@ function PatientHome() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Especialidad */}
-          <div className="md:col-span-5 flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-med-text-sub">
               Seleccionar Especialidad
             </label>
             <div className="relative">
               <select
-                value={selectedSpecialty}
-                onChange={(e) => setSelectedSpecialty(e.target.value)}
+                value={specialtyId}
+                onChange={handleSpecialtyChange}
                 className="w-full appearance-none px-3.5 py-2.5 text-sm bg-white border border-med-border rounded-lg text-med-text-main focus:outline-none focus:ring-2 focus:ring-med-primary-600 pr-10 cursor-pointer"
               >
-                <option value="Cardiología">Cardiología</option>
-                <option value="Pediatría">Pediatría</option>
-                <option value="Neurología">Neurología</option>
-                <option value="Dermatología">Dermatología</option>
-                <option value="Medicina General">Medicina General</option>
+                <option value="">Elegí una especialidad</option>
+                {specialties.map((spec) => (
+                  <option key={spec.id} value={spec.id}>
+                    {spec.name}
+                  </option>
+                ))}
               </select>
               <span className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-med-text-muted">
                 ▼
@@ -125,17 +276,21 @@ function PatientHome() {
           </div>
 
           {/* Doctor */}
-          <div className="md:col-span-4 flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-med-text-sub">
               Seleccionar Doctor
             </label>
             <div className="relative">
               <select
-                value={selectedDoctorId}
-                onChange={(e) => setSelectedDoctorId(e.target.value)}
-                className="w-full appearance-none px-3.5 py-2.5 text-sm bg-white border border-med-border rounded-lg text-med-text-main focus:outline-none focus:ring-2 focus:ring-med-primary-600 pr-10 cursor-pointer"
+                value={doctorId}
+                onChange={handleDoctorChange}
+                disabled={!specialtyId || loadingDoctors}
+                className="w-full appearance-none px-3.5 py-2.5 text-sm bg-white border border-med-border rounded-lg text-med-text-main focus:outline-none focus:ring-2 focus:ring-med-primary-600 pr-10 cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed"
               >
-                {doctorsList.map((doc) => (
+                <option value="">
+                  {loadingDoctors ? 'Cargando médicos...' : 'Elegí un médico'}
+                </option>
+                {doctors.map((doc) => (
                   <option key={doc.id} value={doc.id}>
                     {doc.name}
                   </option>
@@ -146,295 +301,263 @@ function PatientHome() {
               </span>
             </div>
           </div>
-
-          {/* Botón Buscar Disponibilidad */}
-          <div className="md:col-span-3">
-            <Button
-              type="button"
-              className="w-full flex items-center justify-center gap-2 bg-med-primary-900 hover:bg-med-primary-800 text-white font-medium py-2.5 rounded-lg shadow-sm"
-              onClick={() => {}}
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-              <span>Buscar Disponibilidad</span>
-            </Button>
-          </div>
         </div>
+
+        {loadError && (
+          <p className="mt-4 rounded-lg bg-med-danger-bg px-3 py-2 text-xs text-med-danger-text">
+            {loadError}
+          </p>
+        )}
       </Card>
 
-      {/* 2. Card de Información del Doctor Seleccionado (Sin reseñas de doctor) */}
-      <Card className="p-5 sm:p-6 flex items-center gap-4 border-med-border">
-        <div className="relative shrink-0">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-med-primary-100 flex items-center justify-center text-3xl border border-med-primary-200">
-            {currentDoctor.avatar}
+      {/* 2. Datos del médico elegido (solo si eligió uno) */}
+      {currentDoctor && (
+        <Card className="p-5 sm:p-6 flex items-center gap-4 border-med-border">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-med-primary-100 flex items-center justify-center text-3xl border border-med-primary-200 shrink-0">
+            🩺
           </div>
-          <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white" />
-        </div>
 
-        <div className="overflow-hidden">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="overflow-hidden">
             <h2 className="text-base sm:text-lg font-bold text-med-primary-900">
               {currentDoctor.name}
             </h2>
-            <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-med-primary-100 text-med-primary-700">
-              {currentDoctor.badge}
-            </span>
+            <p className="text-xs sm:text-sm font-semibold text-med-primary-700 mt-0.5">
+              {currentDoctor.specialty?.name}
+            </p>
+            {currentDoctor.licenseNumber && (
+              <p className="text-xs text-med-text-muted mt-0.5">
+                Matrícula: {currentDoctor.licenseNumber}
+              </p>
+            )}
           </div>
-          <p className="text-xs sm:text-sm font-semibold uppercase sm:normal-case tracking-wide sm:tracking-normal text-med-primary-700 sm:text-med-text-sub mt-0.5">
-            {currentDoctor.specialtyDetail}
+        </Card>
+      )}
+
+      {/* Mientras no haya médico elegido, mostramos una ayuda */}
+      {!currentDoctor && (
+        <Card className="p-8 text-center border-dashed">
+          <p className="text-sm text-med-text-sub">
+            Elegí una especialidad y un médico para ver los horarios
+            disponibles.
           </p>
-          <p className="text-xs text-med-text-muted mt-0.5 truncate">
-            {currentDoctor.clinic}
-          </p>
-        </div>
-      </Card>
+        </Card>
+      )}
 
-      {/* 3. Selector Semanal de Disponibilidad */}
-      <Card className="p-5 sm:p-6 border-med-border">
-        {/* Cabecera del calendario de semana */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-med-border-subtle">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className="p-1 rounded-md border border-med-border hover:bg-gray-50 text-med-text-sub transition"
-            >
-              ‹
-            </button>
-            <span className="font-bold text-sm sm:text-base text-med-primary-900">
-              Lunes 22 - Viernes 26, Mayo
-            </span>
-            <button
-              type="button"
-              className="p-1 rounded-md border border-med-border hover:bg-gray-50 text-med-text-sub transition"
-            >
-              ›
-            </button>
-          </div>
+      {/* 3. Calendario semanal con los horarios reales */}
+      {currentDoctor && (
+        <Card className="p-5 sm:p-6 border-med-border">
+          {loadingSlots && (
+            <p className="py-10 text-center text-sm text-med-text-sub">
+              Cargando horarios...
+            </p>
+          )}
 
-          {/* Leyenda */}
-          <div className="flex items-center gap-4 text-xs text-med-text-sub">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-med-primary-900" />
-              Disponible
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              Seleccionado
-            </span>
-          </div>
-        </div>
+          {!loadingSlots && slots.length === 0 && (
+            <p className="py-10 text-center text-sm text-med-text-sub">
+              Este médico no tiene turnos disponibles por ahora.
+            </p>
+          )}
 
-        {/* --- A) VISTA DESKTOP: Grid semanal de 5 columnas (visible en sm+) --- */}
-        <div className="hidden sm:grid sm:grid-cols-5 gap-3 pt-5">
-          {weekDays.map((day) => {
-            const slots = slotsByDay[day.dateNumber] || [];
-
-            return (
-              <div
-                key={day.dateNumber}
-                className="flex flex-col items-center gap-3"
-              >
-                {/* Cabecera del día */}
-                <div className="text-center">
-                  <span className="text-[11px] font-bold text-med-text-sub uppercase">
-                    {day.dayName}
+          {!loadingSlots && slots.length > 0 && (
+            <>
+              {/* Cabecera: navegación entre semanas */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-med-border-subtle">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    aria-label="Semana anterior"
+                    onClick={() => handleChangeWeek(-1)}
+                    disabled={!canGoBack}
+                    className="px-2 py-1 rounded-md border border-med-border hover:bg-gray-50 text-med-text-sub transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    ‹
+                  </button>
+                  <span className="font-bold text-sm sm:text-base text-med-primary-900">
+                    {formatWeekRange(weekStart)}
                   </span>
-                  <p className="text-xl font-bold text-med-primary-900 leading-tight">
-                    {day.dateNumber}
-                  </p>
+                  <button
+                    type="button"
+                    aria-label="Semana siguiente"
+                    onClick={() => handleChangeWeek(1)}
+                    className="px-2 py-1 rounded-md border border-med-border hover:bg-gray-50 text-med-text-sub transition"
+                  >
+                    ›
+                  </button>
                 </div>
 
-                {/* Slots del día */}
-                <div className="w-full flex flex-col gap-2">
-                  {slots.length > 0 ? (
-                    slots.map((slot) => {
-                      const isSelected =
-                        selectedDayNumber === day.dateNumber &&
-                        selectedSlot === slot;
-
-                      return (
-                        <button
-                          key={slot}
-                          type="button"
-                          onClick={() => handleSelectSlot(day.dateNumber, slot)}
-                          className={`w-full py-2 px-3 text-xs font-semibold rounded-lg border transition-all text-center ${
-                            isSelected
-                              ? 'bg-emerald-400 text-white border-emerald-400 shadow-sm'
-                              : 'bg-white border-med-border text-med-primary-900 hover:border-med-primary-600 hover:bg-med-primary-50/50'
-                          }`}
-                        >
-                          {slot}
-                        </button>
-                      );
-                    })
-                  ) : (
-                    <div className="h-44 flex items-center justify-center text-center p-2">
-                      <p className="text-xs text-med-text-muted leading-relaxed">
-                        No hay turnos disponibles para este día.
-                      </p>
-                    </div>
-                  )}
+                <div className="flex items-center gap-4 text-xs text-med-text-sub">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-med-primary-900" />
+                    Disponible
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    Seleccionado
+                  </span>
                 </div>
               </div>
-            );
-          })}
-        </div>
 
-        {/* --- B) VISTA MOBILE: Selector de días horizontal + Horarios en bloques (visible en mobile) --- */}
-        <div className="block sm:hidden pt-4 space-y-4">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-med-text-main">
-                Próximos Turnos
-              </span>
-              <span className="text-xs font-semibold text-med-primary-700">
-                Ver más ›
-              </span>
-            </div>
-
-            {/* Días en fila desplazable */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-              {weekDays.map((day) => {
-                const isActive = selectedDayNumber === day.dateNumber;
-
-                return (
-                  <button
-                    key={day.dateNumber}
-                    type="button"
-                    onClick={() => {
-                      setSelectedDayNumber(day.dateNumber);
-                      const availableSlots = slotsByDay[day.dateNumber] || [];
-
-                      if (
-                        availableSlots.length > 0 &&
-                        !availableSlots.includes(selectedSlot)
-                      ) {
-                        setSelectedSlot(availableSlots[0]);
-                      }
-                    }}
-                    className={`flex-1 min-w-[68px] py-2.5 px-2 rounded-xl text-center border transition-all ${
-                      isActive
-                        ? 'bg-med-primary-900 text-white border-med-primary-900 shadow-sm'
-                        : 'bg-white border-med-border text-med-text-main hover:bg-gray-50'
-                    }`}
-                  >
-                    <span
-                      className={`block text-[10px] font-bold uppercase ${
-                        isActive ? 'text-white/80' : 'text-med-text-sub'
-                      }`}
-                    >
-                      {day.dayName}
-                    </span>
-                    <span className="block text-base font-extrabold my-0.5">
-                      {day.dateNumber}
-                    </span>
-                    <span
-                      className={`block text-[10px] uppercase ${
-                        isActive ? 'text-white/80' : 'text-med-text-muted'
-                      }`}
-                    >
-                      MAY
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Horarios disponibles para el día seleccionado en mobile */}
-          <div>
-            <span className="block text-xs font-bold text-med-text-sub mb-2.5">
-              Horarios disponibles (Bloques de 30 min)
-            </span>
-
-            {slotsByDay[selectedDayNumber]?.length > 0 ? (
-              <div className="grid grid-cols-3 gap-2">
-                {slotsByDay[selectedDayNumber].map((slot) => {
-                  const isSelected = selectedSlot === slot;
+              {/* A) Desktop: una columna por día */}
+              <div className="hidden sm:grid sm:grid-cols-7 gap-3 pt-5">
+                {weekDates.map((date) => {
+                  const daySlots = slotsByDate[date] ?? [];
 
                   return (
-                    <button
-                      key={slot}
-                      type="button"
-                      onClick={() => handleSelectSlot(selectedDayNumber, slot)}
-                      className={`py-2 px-2 text-xs font-semibold rounded-lg border transition-all ${
-                        isSelected
-                          ? 'border-2 border-med-primary-900 bg-white text-med-primary-900 font-bold shadow-xs'
-                          : 'bg-white border-med-border text-med-text-main hover:bg-gray-50'
-                      }`}
+                    <div
+                      key={date}
+                      className="flex flex-col items-center gap-3"
                     >
-                      {slot} AM
-                    </button>
+                      <div className="text-center">
+                        <span className="text-[11px] font-bold text-med-text-sub uppercase">
+                          {getDayName(date)}
+                        </span>
+                        <p className="text-xl font-bold text-med-primary-900 leading-tight">
+                          {parseDate(date).getDate()}
+                        </p>
+                      </div>
+
+                      <div className="w-full flex flex-col gap-2">
+                        {daySlots.length > 0 ? (
+                          daySlots.map(renderSlotButton)
+                        ) : (
+                          <p className="py-6 text-center text-[11px] text-med-text-muted">
+                            Sin turnos
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
-            ) : (
-              <div className="p-6 bg-gray-50 border border-med-border rounded-xl text-center">
-                <p className="text-xs text-med-text-muted">
-                  No hay turnos disponibles para este día seleccionado.
-                </p>
+
+              {/* B) Mobile: fila de días + horarios del día elegido */}
+              <div className="block sm:hidden pt-4 space-y-4">
+                <div className="flex items-center gap-2 overflow-x-auto pb-2">
+                  {weekDates.map((date) => {
+                    const hasSlots = slotsByDate[date]?.length > 0;
+                    const isActive = selectedDate === date;
+
+                    return (
+                      <button
+                        key={date}
+                        type="button"
+                        disabled={!hasSlots}
+                        onClick={() => setSelectedDate(date)}
+                        className={`flex-1 min-w-[56px] py-2.5 px-2 rounded-xl text-center border transition-all disabled:opacity-40 ${
+                          isActive
+                            ? 'bg-med-primary-900 text-white border-med-primary-900 shadow-sm'
+                            : 'bg-white border-med-border text-med-text-main'
+                        }`}
+                      >
+                        <span className="block text-[10px] font-bold uppercase">
+                          {getDayName(date)}
+                        </span>
+                        <span className="block text-base font-extrabold my-0.5">
+                          {parseDate(date).getDate()}
+                        </span>
+                        <span className="block text-[10px] uppercase">
+                          {getMonthName(date)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {slotsByDate[selectedDate]?.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {slotsByDate[selectedDate].map(renderSlotButton)}
+                  </div>
+                ) : (
+                  <p className="p-6 bg-gray-50 border border-med-border rounded-xl text-center text-xs text-med-text-muted">
+                    No hay turnos esta semana.
+                  </p>
+                )}
               </div>
+            </>
+          )}
+        </Card>
+      )}
+
+      {/* Error al reservar cuando ya no hay horario elegido (ej: turno tomado) */}
+      {submitError && !selectedSlot && (
+        <p className="rounded-lg bg-med-danger-bg px-3 py-2 text-xs text-med-danger-text">
+          {submitError}
+        </p>
+      )}
+
+      {/* 4. Resumen + motivo + confirmar (solo si eligió un horario) */}
+      {selectedSlot && (
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="bg-med-primary-50 border border-med-primary-200/60 rounded-2xl p-5 sm:p-6 flex flex-col gap-4"
+        >
+          <div className="border-l-4 border-med-primary-900 pl-3.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-med-text-sub">
+              Resumen de Selección
+            </span>
+            <p className="text-base sm:text-lg font-bold text-med-primary-900 mt-0.5 flex items-center gap-2">
+              <span>📅</span>
+              <span className="first-letter:uppercase">
+                {formatLongDate(selectedSlot.date)}, {selectedSlot.startTime} hs
+              </span>
+            </p>
+            <p className="text-xs text-med-text-sub mt-0.5">
+              {currentDoctor?.name} • {selectedSlot.startTime} a{' '}
+              {selectedSlot.endTime} hs
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="reason"
+              className="text-xs font-semibold text-med-text-sub"
+            >
+              Motivo de la consulta
+            </label>
+            <textarea
+              id="reason"
+              rows={3}
+              placeholder="Ej: control anual, dolor de cabeza frecuente..."
+              className="w-full px-3.5 py-2.5 text-sm bg-white border border-med-border rounded-lg focus:outline-none focus:ring-2 focus:ring-med-primary-600"
+              {...register('reason', {
+                validate: (value) =>
+                  value.trim().length >= 5 ||
+                  'El motivo debe tener al menos 5 caracteres.',
+              })}
+            />
+            {errors.reason && (
+              <p className="text-xs text-med-danger-text">
+                {errors.reason.message}
+              </p>
             )}
           </div>
-        </div>
-      </Card>
 
-      {/* 4. Banner / Resumen de Selección y Confirmación */}
-      <div className="bg-med-primary-50 border border-med-primary-200/60 rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        {/* Detalle del Turno */}
-        <div className="border-l-4 border-med-primary-900 pl-3.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-med-text-sub">
-            Resumen de Selección
-          </span>
-          <p className="text-base sm:text-lg font-bold text-med-primary-900 mt-0.5 flex items-center gap-2">
-            <span>📅</span>
-            <span>
-              {selectedDayObj.fullDate}, {selectedSlot} HS
-            </span>
-          </p>
-          <p className="text-xs text-med-text-sub mt-0.5">
-            {currentDoctor.clinic} • Duración: 30 min
-          </p>
-        </div>
+          {submitError && (
+            <p className="rounded-lg bg-med-danger-bg px-3 py-2 text-xs text-med-danger-text">
+              {submitError}
+            </p>
+          )}
 
-        {/* Botón de Confirmación */}
-        <Button
-          type="button"
-          onClick={handleConfirmAppointment}
-          className="flex items-center justify-center gap-2 bg-med-primary-900 hover:bg-med-primary-800 text-white font-medium py-3 px-6 rounded-xl shadow-md text-sm shrink-0"
-        >
-          <span>Confirmar Turno</span>
-          <svg
-            className="w-5 h-5 text-emerald-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-        </Button>
-      </div>
+          <div className="flex justify-end">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="py-3 px-6 rounded-xl text-sm disabled:opacity-60"
+            >
+              {isSubmitting ? 'Reservando...' : 'Confirmar Turno'}
+            </Button>
+          </div>
+        </form>
+      )}
 
-      {/* Modal de Confirmación Exitosa */}
-      {confirmedModal && (
+      {/* Modal de turno confirmado (con los datos que devolvió el back) */}
+      {confirmed && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-8 text-center animate-in fade-in zoom-in duration-150">
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-8 text-center"
+          >
             <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
               ✓
             </div>
@@ -442,26 +565,25 @@ function PatientHome() {
               ¡Turno Confirmado con Éxito!
             </h3>
             <p className="text-xs text-med-text-sub mt-2 leading-relaxed">
-              Tu turno con el{' '}
+              Tu turno con{' '}
+              <strong className="text-med-text-main">{confirmed.doctor}</strong>{' '}
+              quedó reservado para el{' '}
               <strong className="text-med-text-main">
-                {currentDoctor.name}
-              </strong>{' '}
-              ha sido reservado para el{' '}
-              <strong className="text-med-text-main">
-                {selectedDayObj.fullDate} a las {selectedSlot} hs
+                {formatLongDate(confirmed.date)} a las{' '}
+                {confirmed.startTime.slice(0, 5)} hs
               </strong>
               .
             </p>
 
             <div className="mt-5 p-3.5 bg-med-primary-50 border border-med-primary-200/60 rounded-xl text-xs text-med-primary-900 text-left space-y-1">
               <p>
-                <strong>Especialidad:</strong> {currentDoctor.specialtyDetail}
+                <strong>Especialidad:</strong> {confirmed.speciality ?? '-'}
               </p>
               <p>
-                <strong>Lugar:</strong> {currentDoctor.clinic}
+                <strong>Motivo:</strong> {confirmed.reason}
               </p>
               <p>
-                <strong>Paciente:</strong> Johnathan Doe (DNI: 40.123.456)
+                <strong>DNI del paciente:</strong> {getSessionDni()}
               </p>
             </div>
 
@@ -475,7 +597,7 @@ function PatientHome() {
               <Button
                 variant="secondary"
                 className="w-full text-xs py-2.5"
-                onClick={() => setConfirmedModal(false)}
+                onClick={() => setConfirmed(null)}
               >
                 Reservar Otro
               </Button>
