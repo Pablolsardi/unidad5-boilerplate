@@ -1,15 +1,25 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import Card from '../../shared/components/Card';
 import SpecialtyForm from '../components/SpecialtyForm';
-import { createSpecialty } from '../services/specialtiesService';
+import useSpecialty from '../hooks/useSpecialty';
+import {
+  createSpecialty,
+  updateSpecialty,
+} from '../services/specialtiesService';
 
 const LIST_PATH = '/admin/specialties';
 
 function SpecialtyFormPage() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEdit = Boolean(id);
+
+  const { specialty, loading, error } = useSpecialty(id);
 
   const handleSubmit = async (values) => {
-    const { error } = await createSpecialty(values);
+    const { error } = isEdit
+      ? await updateSpecialty(id, values)
+      : await createSpecialty(values);
 
     if (error) return error;
 
@@ -17,6 +27,16 @@ function SpecialtyFormPage() {
 
     return null;
   };
+
+  if (loading) {
+    return (
+      <p className="text-sm text-med-text-muted">Cargando especialidad...</p>
+    );
+  }
+
+  if (error) {
+    return <p className="text-sm text-med-danger-text">{error}</p>;
+  }
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl">
@@ -27,20 +47,23 @@ function SpecialtyFormPage() {
           </Link>
           <span className="mx-1.5">›</span>
           <span className="text-med-text-main font-medium">
-            Agregar Nueva Especialidad
+            {isEdit ? 'Editar Especialidad' : 'Agregar Nueva Especialidad'}
           </span>
         </nav>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-med-text-main">
-          Registrar Nueva Especialidad
+          {isEdit ? 'Editar Especialidad' : 'Registrar Nueva Especialidad'}
         </h1>
         <p className="text-sm text-med-text-sub mt-1">
-          Complete la información para dar de alta una especialidad médica.
+          {isEdit
+            ? 'Modifique los datos de la especialidad.'
+            : 'Complete la información para dar de alta una especialidad médica.'}
         </p>
       </div>
 
       <Card className="border-med-border">
         <SpecialtyForm
-          submitText="Guardar Especialidad"
+          defaultValues={specialty ?? undefined}
+          submitText={isEdit ? 'Guardar Cambios' : 'Guardar Especialidad'}
           onSubmit={handleSubmit}
           onCancel={() => navigate(LIST_PATH)}
         />

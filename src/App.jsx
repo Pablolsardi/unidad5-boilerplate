@@ -99,11 +99,19 @@ const routes = [
         element: <SpecialtyFormPage />,
       },
       {
+        path: 'specialties/:id/edit',
+        element: <SpecialtyFormPage />,
+      },
+      {
         path: 'doctors',
         element: <DoctorsPage />,
       },
       {
         path: 'doctors/new',
+        element: <DoctorFormPage />,
+      },
+      {
+        path: 'doctors/:id/edit',
         element: <DoctorFormPage />,
       },
       {

@@ -1,16 +1,30 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import Card from '../../shared/components/Card';
 import DoctorForm from '../components/DoctorForm';
-import { createDoctor } from '../services/doctorsService';
+import useDoctor from '../hooks/useDoctor';
+import { createDoctor, updateDoctor } from '../services/doctorsService';
 
 const LIST_PATH = '/admin/doctors';
 
+// El back devuelve { specialty: { id, name } } y el form espera specialtyId
+const toFormValues = (doctor) => ({
+  name: doctor.name,
+  licenseNumber: doctor.licenseNumber ?? '',
+  specialtyId: doctor.specialty?.id ?? '',
+});
+
 function DoctorFormPage() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEdit = Boolean(id);
+
+  const { doctor, loading, error } = useDoctor(id);
 
   // Devuelve el error (o null) para que el formulario lo muestre
   const handleSubmit = async (values) => {
-    const { error } = await createDoctor(values);
+    const { error } = isEdit
+      ? await updateDoctor(id, values)
+      : await createDoctor(values);
 
     if (error) return error;
 
@@ -18,6 +32,14 @@ function DoctorFormPage() {
 
     return null;
   };
+
+  if (loading) {
+    return <p className="text-sm text-med-text-muted">Cargando médico...</p>;
+  }
+
+  if (error) {
+    return <p className="text-sm text-med-danger-text">{error}</p>;
+  }
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl">
@@ -28,21 +50,23 @@ function DoctorFormPage() {
           </Link>
           <span className="mx-1.5">›</span>
           <span className="text-med-text-main font-medium">
-            Agregar Nuevo Doctor
+            {isEdit ? 'Editar Doctor' : 'Agregar Nuevo Doctor'}
           </span>
         </nav>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-med-text-main">
-          Registrar Nuevo Doctor
+          {isEdit ? 'Editar Doctor' : 'Registrar Nuevo Doctor'}
         </h1>
         <p className="text-sm text-med-text-sub mt-1">
-          Complete todos los campos obligatorios para integrar al nuevo
-          facultativo al sistema del centro médico.
+          {isEdit
+            ? 'Modifique los datos del doctor.'
+            : 'Complete todos los campos obligatorios para integrar al nuevo facultativo al sistema del centro médico.'}
         </p>
       </div>
 
       <Card className="border-med-border">
         <DoctorForm
-          submitText="Guardar Doctor"
+          defaultValues={doctor ? toFormValues(doctor) : undefined}
+          submitText={isEdit ? 'Guardar Cambios' : 'Guardar Doctor'}
           onSubmit={handleSubmit}
           onCancel={() => navigate(LIST_PATH)}
         />

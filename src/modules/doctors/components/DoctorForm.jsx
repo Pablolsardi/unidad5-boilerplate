@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import Button from '../../shared/components/Button';
 import Input from '../../shared/components/Input';
@@ -22,6 +22,7 @@ function DoctorForm({
     register,
     handleSubmit,
     setError,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm({
     defaultValues: {
@@ -31,6 +32,16 @@ function DoctorForm({
       ...defaultValues,
     },
   });
+
+  // En edición: las opciones del combo llegan después del primer render,
+  // así que hay que volver a seleccionar la especialidad cuando ya existen.
+  const initialSpecialtyId = defaultValues?.specialtyId;
+
+  useEffect(() => {
+    if (specialties.length > 0 && initialSpecialtyId) {
+      setValue('specialtyId', initialSpecialtyId);
+    }
+  }, [specialties, initialSpecialtyId, setValue]);
 
   const submit = async (values) => {
     setServerError('');
