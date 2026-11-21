@@ -6,10 +6,10 @@ import Button from '../../shared/components/Button';
 import { getSpecialties } from '../../specialties/services/specialtiesService';
 import useDoctorsBySpecialty from '../hooks/useDoctorsBySpecialty';
 import ErrorAlert from '../../shared/components/ErrorAlert';
-import { createAppointment } from '../services/appointmentsService';
 import useAuth from '../../auth/hook/useAuth';
 import useDoctorSlots from '../hooks/useDoctorSlots';
 import useWeekCalendar from '../hooks/useWeekCalendar';
+import useBookAppointment from '../hooks/useBookAppointment';
 import {
   formatLongDate,
   formatWeekRange,
@@ -17,9 +17,6 @@ import {
   getMonthName,
   parseDate,
 } from '../helpers/dateHelpers';
-
-// Errores que significan "ese horario ya no sirve": hay que recargar los horarios
-const SLOT_ERRORS = ['APPOINTMENT_CONFLICT', 'APPOINTMENT_PAST_DATE'];
 
 function PatientHome() {
   const navigate = useNavigate();
@@ -64,8 +61,15 @@ function PatientHome() {
   const currentDoctor = doctors.find((doc) => doc.id === doctorId);
 
   const [selectedSlot, setSelectedSlot] = useState(null);
-  const [submitError, setSubmitError] = useState('');
-  const [confirmed, setConfirmed] = useState(null);
+
+  const {
+    book,
+    error: submitError,
+    clearError: clearSubmitError,
+    confirmed,
+    closeConfirmation,
+  } = useBookAppointment();
+
   const {
     slots,
     loading: loadingSlots,
@@ -95,49 +99,37 @@ function PatientHome() {
     setDoctorId('');
     setSelectedSlot(null);
     setLoadError('');
-    setSubmitError('');
+    clearSubmitError();
   };
 
   const handleDoctorChange = (e) => {
     setDoctorId(e.target.value);
     setSelectedSlot(null);
     setLoadError('');
-    setSubmitError('');
+    clearSubmitError();
   };
 
   const handleSelectSlot = (slot) => {
     setSelectedSlot(slot);
     setSelectedDate(slot.date);
-    setSubmitError('');
+    clearSubmitError();
   };
 
   const onSubmit = async ({ reason }) => {
-    setSubmitError('');
-
-    const { data, error } = await createAppointment({
+    const { ok, slotUnavailable } = await book({
       doctorId,
       slotId: selectedSlot.id,
       reason,
-      dni,
     });
 
-    if (error) {
-      setSubmitError(error.message);
-
-      // Si el horario ya no está disponible, lo deseleccionamos y recargamos
-      if (SLOT_ERRORS.includes(error.code)) {
-        setSelectedSlot(null);
-        reloadSlots();
-      }
-
-      return;
+    // Si reservó, o si el horario ya no está disponible, lo soltamos y recargamos:
+    // en los dos casos ese horario desaparece del calendario.
+    if (ok || slotUnavailable) {
+      setSelectedSlot(null);
+      reloadSlots();
     }
 
-    // Reserva OK: mostramos el modal y recargamos (ese horario desaparece)
-    setConfirmed(data);
-    setSelectedSlot(null);
-    reset();
-    reloadSlots();
+    if (ok) reset();
   };
 
   // boton de horario
@@ -518,7 +510,7 @@ function PatientHome() {
               <Button
                 variant="secondary"
                 className="w-full text-xs py-2.5"
-                onClick={() => setConfirmed(null)}
+                onClick={closeConfirmation}
               >
                 Reservar Otro
               </Button>
