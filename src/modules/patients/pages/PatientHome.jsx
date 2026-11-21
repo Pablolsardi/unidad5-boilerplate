@@ -9,16 +9,13 @@ import ErrorAlert from '../../shared/components/ErrorAlert';
 import { createAppointment } from '../services/appointmentsService';
 import useAuth from '../../auth/hook/useAuth';
 import useDoctorSlots from '../hooks/useDoctorSlots';
+import useWeekCalendar from '../hooks/useWeekCalendar';
 import {
-  addDays,
   formatLongDate,
   formatWeekRange,
   getDayName,
   getMonthName,
-  getWeekDates,
-  groupSlotsByDate,
   parseDate,
-  startOfWeek,
 } from '../helpers/dateHelpers';
 
 // Errores que significan "ese horario ya no sirve": hay que recargar los horarios
@@ -66,8 +63,6 @@ function PatientHome() {
   // El médico elegido (undefined si todavía no eligió ninguno)
   const currentDoctor = doctors.find((doc) => doc.id === doctorId);
 
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
-  const [selectedDate, setSelectedDate] = useState('');
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [submitError, setSubmitError] = useState('');
   const [confirmed, setConfirmed] = useState(null);
@@ -79,23 +74,21 @@ function PatientHome() {
   } = useDoctorSlots(doctorId);
 
   const {
+    weekStart,
+    weekDates,
+    slotsByDate,
+    selectedDate,
+    setSelectedDate,
+    canGoBack,
+    changeWeek: handleChangeWeek,
+  } = useWeekCalendar(slots);
+
+  const {
     register,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
   } = useForm({ defaultValues: { reason: '' } });
-
-  // TEMPORAL (se va a useWeekCalendar en 6.c): saltar a la semana del primer horario
-  useEffect(() => {
-    if (slots.length === 0) return;
-
-    setWeekStart(startOfWeek(parseDate(slots[0].date)));
-    setSelectedDate(slots[0].date);
-  }, [slots]);
-
-  const slotsByDate = groupSlotsByDate(slots);
-  const weekDates = getWeekDates(weekStart);
-  const canGoBack = weekStart > startOfWeek(new Date());
 
   const handleSpecialtyChange = (e) => {
     setSpecialtyId(e.target.value);
@@ -110,16 +103,6 @@ function PatientHome() {
     setSelectedSlot(null);
     setLoadError('');
     setSubmitError('');
-  };
-
-  const handleChangeWeek = (direction) => {
-    const newStart = addDays(weekStart, direction * 7);
-    const firstDayWithSlots = getWeekDates(newStart).find(
-      (date) => slotsByDate[date]?.length > 0
-    );
-
-    setWeekStart(newStart);
-    setSelectedDate(firstDayWithSlots ?? '');
   };
 
   const handleSelectSlot = (slot) => {
