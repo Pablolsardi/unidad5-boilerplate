@@ -8,7 +8,7 @@ import useDoctorsBySpecialty from '../hooks/useDoctorsBySpecialty';
 import ErrorAlert from '../../shared/components/ErrorAlert';
 import { createAppointment } from '../services/appointmentsService';
 import useAuth from '../../auth/hook/useAuth';
-import { getDoctorSlots } from '../../doctors/services/doctorsService';
+import useDoctorSlots from '../hooks/useDoctorSlots';
 import {
   addDays,
   formatLongDate,
@@ -17,7 +17,6 @@ import {
   getMonthName,
   getWeekDates,
   groupSlotsByDate,
-  isPastSlot,
   parseDate,
   startOfWeek,
 } from '../helpers/dateHelpers';
@@ -64,28 +63,20 @@ function PatientHome() {
       ignore = true;
     };
   }, []);
-
-  const handleSpecialtyChange = (e) => {
-    setSpecialtyId(e.target.value);
-    setDoctorId('');
-    setSlots([]);
-    setSelectedSlot(null);
-    setLoadError('');
-    setSubmitError('');
-  };
-
   // El médico elegido (undefined si todavía no eligió ninguno)
   const currentDoctor = doctors.find((doc) => doc.id === doctorId);
 
-  // Horarios libres del médico elegido (vienen de la API)
-  const [slots, setSlots] = useState([]);
-  const [loadingSlots, setLoadingSlots] = useState(false);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedSlot, setSelectedSlot] = useState(null);
-  const [reloadSlots, setReloadSlots] = useState(0);
   const [submitError, setSubmitError] = useState('');
   const [confirmed, setConfirmed] = useState(null);
+  const {
+    slots,
+    loading: loadingSlots,
+    error: slotsError,
+    reload: reloadSlots,
+  } = useDoctorSlots(doctorId);
 
   const {
     register,
@@ -94,50 +85,28 @@ function PatientHome() {
     formState: { errors, isSubmitting },
   } = useForm({ defaultValues: { reason: '' } });
 
-  // cargar los horarios libres al cambiar de medico
+  // TEMPORAL (se va a useWeekCalendar en 6.c): saltar a la semana del primer horario
   useEffect(() => {
-    if (!doctorId) return;
+    if (slots.length === 0) return;
 
-    let ignore = false;
-
-    const load = async () => {
-      setLoadingSlots(true);
-      const { data, error } = await getDoctorSlots(doctorId);
-
-      if (ignore) return;
-
-      setLoadingSlots(false);
-
-      if (error) {
-        setLoadError(error.message);
-
-        return;
-      }
-
-      const futureSlots = data.filter((slot) => !isPastSlot(slot));
-
-      setSlots(futureSlots);
-
-      if (futureSlots.length > 0) {
-        setWeekStart(startOfWeek(parseDate(futureSlots[0].date)));
-        setSelectedDate(futureSlots[0].date);
-      }
-    };
-
-    load();
-
-    return () => {
-      ignore = true;
-    };
-  }, [doctorId, reloadSlots]);
+    setWeekStart(startOfWeek(parseDate(slots[0].date)));
+    setSelectedDate(slots[0].date);
+  }, [slots]);
 
   const slotsByDate = groupSlotsByDate(slots);
   const weekDates = getWeekDates(weekStart);
   const canGoBack = weekStart > startOfWeek(new Date());
 
+  const handleSpecialtyChange = (e) => {
+    setSpecialtyId(e.target.value);
+    setDoctorId('');
+    setSelectedSlot(null);
+    setLoadError('');
+    setSubmitError('');
+  };
+
   const handleDoctorChange = (e) => {
     setDoctorId(e.target.value);
-    setSlots([]);
     setSelectedSlot(null);
     setLoadError('');
     setSubmitError('');
@@ -175,7 +144,7 @@ function PatientHome() {
       // Si el horario ya no está disponible, lo deseleccionamos y recargamos
       if (SLOT_ERRORS.includes(error.code)) {
         setSelectedSlot(null);
-        setReloadSlots((n) => n + 1);
+        reloadSlots();
       }
 
       return;
@@ -185,7 +154,7 @@ function PatientHome() {
     setConfirmed(data);
     setSelectedSlot(null);
     reset();
-    setReloadSlots((n) => n + 1);
+    reloadSlots();
   };
 
   // boton de horario
@@ -274,7 +243,9 @@ function PatientHome() {
           </div>
         </div>
 
-        <ErrorAlert className="mt-4">{loadError || doctorsError}</ErrorAlert>
+        <ErrorAlert className="mt-4">
+          {loadError || doctorsError || slotsError}
+        </ErrorAlert>
       </Card>
 
       {/* 2. Datos del médico elegido (solo si eligió uno) */}
