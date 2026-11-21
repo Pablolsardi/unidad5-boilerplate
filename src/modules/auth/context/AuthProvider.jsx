@@ -29,7 +29,9 @@ function AuthProvider({ children }) {
     localStorage.setItem('role', role);
     localStorage.setItem('email', email);
 
+    // Solo el paciente tiene dni: si el login es de admin, se borra el que haya quedado
     if (dni) localStorage.setItem('dni', dni);
+    else localStorage.removeItem('dni');
 
     setIsAuthenticated(true);
     setRole(role);
