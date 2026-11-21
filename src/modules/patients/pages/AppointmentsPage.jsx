@@ -9,7 +9,7 @@ import useAuth from '../../auth/hook/useAuth';
 import {
   cancelAppointment,
   getMyAppointments,
-} from '../services/appointmentsService';
+} from '../services/patientsAppointmentsService';
 
 function AppointmentsPage() {
   const navigate = useNavigate();

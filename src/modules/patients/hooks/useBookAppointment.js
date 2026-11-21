@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import useAuth from '../../auth/hook/useAuth';
-import { createAppointment } from '../services/appointmentsService';
+import { createAppointment } from '../services/patientsAppointmentsService';
 
 // Errores que significan "ese horario ya no sirve": hay que recargar los horarios
 const SLOT_ERRORS = ['APPOINTMENT_CONFLICT', 'APPOINTMENT_PAST_DATE'];
